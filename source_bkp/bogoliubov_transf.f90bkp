@@ -1,0 +1,248 @@
+subroutine bogoliubov_transf(kpointindex,hamiltonian,evalues,leftevector,rightevector)
+   use mod_global
+   implicit none
+   integer, intent(in) :: kpointindex
+   complex(kind=pc), intent(inout) :: hamiltonian(twonaucell,twonaucell), evalues(twonaucell), leftevector(twonaucell,twonaucell), rightevector(twonaucell,twonaucell)
+   complex(kind=pc) :: auxevector(twonaucell,twonaucell), diagonal(twonaucell,twonaucell), number, grightevector(twonaucell,twonaucell)
+   real(kind=pc) :: summation
+   character(len=10) :: format = 'f8.3'
+   integer :: i, j, m, test=1
+
+
+   !Sorting in a crescent order the energy values
+   call sort(evalues,leftevector,rightevector,twonaucell)
+
+   leftevector = trimatmul( g , trp_cjg(rightevector), g )
+
+   !Renormalizing the eigenvectors
+   ! diagonal = matmul( transpose(conjg(leftevector)) , rightevector )
+   diagonal = matmul( leftevector , rightevector )
+   do j=1, twonaucell
+   if( abs(diagonal(j,j)) .GE. zero_toler ) then
+      number = 1.0d0/sqrt(diagonal(j,j))
+   else
+      number = 1.0d0
+   end if
+   rightevector(:,j) = number*rightevector(:,j)
+   ! leftevector(:,j) = conjg(number)*leftevector(:,j)
+   leftevector(j,:) = number*leftevector(j,:)
+   end do
+
+   ! !Constructing the eigenvector for -lambda to related with the one for lambda by R_{lambda}=(a1,a2,a3,...,b1,b2,b3,...) --> R_{-lambda}=(b1,b2,b3,...,a1,a2,a3,...)* . This will be required for R^dagger.g.R = g that is required for b_n = R(:,n) to represent the new bosons operator that must satisfy the bosons commutation relations: [vec{a},vec{a^dagger}]=g.
+   ! do j=1, naucell
+   !    rightevector(naucell+1:twonaucell,twonaucell+1-j) = conjg( rightevector(1:naucell           ,j) )
+   !    rightevector(1:naucell           ,twonaucell+1-j) = conjg( rightevector(naucell+1:twonaucell,j) )
+   ! end do
+   
+   hamiltonian(naucell+1:twonaucell,:) = -hamiltonian(naucell+1:twonaucell,:)
+
+   if(toprint) then
+      auxevector(:,1) = real(evalues)
+      auxevector(:,2) = aimag(evalues)
+      call printmatrix("Eigenvalues of Dmatrix"//new_line('a')//"  Re          Im", real(auxevector(:,1:2)), "f12.8")
+
+      diagonal = matmul( leftevector, rightevector )
+      call printmatrix("L.R", real(diagonal), "f12.8")
+
+      diagonal = trimatmul( trp_cjg(rightevector) , hamiltonian, rightevector )
+      call printmatrix("R+.H.R",  real(diagonal), "F12.8")
+
+      diagonal = trimatmul( trp_cjg(rightevector), g, rightevector)
+      call printmatrix("R+.g.R",  real(diagonal), "F12.8")
+      diagonal = trimatmul(rightevector , g, trp_cjg(rightevector))
+      call printmatrix("R.g.R+",  real(diagonal), "F12.8")
+
+      pause
+   end if
+
+   return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if(toprint .and. kpointindex==test) then
+   ! H = g.D
+   ! hamiltonian(naucell+1:twonaucell,:) = -hamiltonian(naucell+1:twonaucell,:)
+   ! hamiltonian(1:naucell,:) = -hamiltonian(1:naucell,:)
+   ! hamiltonian(:,1:naucell) = -hamiltonian(:,1:naucell)
+   ! hamiltonian(:,naucell+1:naucell) = -hamiltonian(:,naucell+1:twonaucell)  
+   diagonal = matmul( transpose(conjg(leftevector)) , matmul(hamiltonian,rightevector) )
+   call printmatrix("L+.D.R=A",  real(diagonal), "F12.8")
+end if
+
+
+! if(toprint .and. kpointindex==test) then
+!    grightevector(1        :   naucell,:) =  diagonal(1        :   naucell,:)
+!    grightevector(1+naucell:twonaucell,:) = -diagonal(1+naucell:twonaucell,:)
+!    ! hamiltonian = matmul( transpose(conjg(rightevector)) , grightevector )
+!    ! call printmatrix("R+.g.R",  real(hamiltonian), "F12.8")
+! end if
+
+! if(toprint .and. kpointindex==test) then
+!    diagonal = matmul( transpose(conjg(rightevector)) , matmul(grightevector, rightevector) )
+!    call printmatrix("R+.g.lambda.R",  real(diagonal), "F12.8")
+! end if
+
+if(toprint .and. kpointindex==test) then
+   grightevector(1        :   naucell,:) =  rightevector(1        :   naucell,:)
+   grightevector(1+naucell:twonaucell,:) = -rightevector(1+naucell:twonaucell,:)
+   hamiltonian = matmul( transpose(conjg(rightevector)) , grightevector )
+   call printmatrix("R+.g.R",  real(hamiltonian), "F12.8")
+end if
+
+if(toprint .and. kpointindex==test) then
+   diagonal = matmul( hamiltonian , diagonal )
+   call printmatrix("R+.g.R.A",  real(diagonal), "F12.8")
+end if
+
+leftevector = transpose(conjg(leftevector))
+stop
+
+
+! diagonal = matmul( transpose(conjg(leftevector)) , rightevector )
+! if(toprint .and. kpointindex==test) call printmatrix("L.R original normalized", real(diagonal), "f12.8")
+
+!Creates the left eigenvectors from L = g.R^+.g This is needed for the normalization of the eigenvectors. The normalizing factor will be given in the diagonal of L.R
+auxevector = transpose(conjg(rightevector))
+!The next two lines implement the following multiplication: g.R^+.g . g is diagonal with 1 in the first upper half and -1 on the second half
+auxevector(naucell+1:twonaucell,1:naucell) = -auxevector(naucell+1:twonaucell,1:naucell)
+auxevector(1:naucell,naucell+1:twonaucell) = -auxevector(1:naucell,naucell+1:twonaucell)
+! leftevector = -auxevector
+auxevector = -auxevector
+! L.R
+diagonal = matmul( auxevector , rightevector )
+if(toprint .and. kpointindex==test) call printmatrix("L.R", real(diagonal), "f12.8")
+
+
+!Verify the commutation relationship. R^dagger.g.R = g must be satisfied.
+auxevector = transpose(conjg(rightevector))
+grightevector(:,:) = rightevector(:,:)
+! grightevector(naucell+1:twonaucell,:) = -rightevector(naucell+1:twonaucell,:)
+grightevector(1:naucell,:) = -rightevector(1:naucell,:)
+diagonal = matmul( auxevector, grightevector)
+if(toprint .and. kpointindex==test) call printmatrix("R^+.g.R", real(diagonal), "F12.8")
+
+summation = sum(abs(diagonal-g))
+if( summation > zero_toler*1.d-5 ) then
+   print '(a,f12.8,a,i0,a)', "Bogoliubov Transformation failed: R^+.g.R - g = ", summation, " > 0  |  k point = ", kpointindex, ". Stopping..."
+   ! stop
+end if
+
+
+!Test of diagonalization. R^dagger.H.R must be diagonal with positive eigenvalues
+if(toprint .and. kpointindex==test) then
+   ! H = g.D
+   hamiltonian(naucell+1:twonaucell,:) = -hamiltonian(naucell+1:twonaucell,:)
+   diagonal = matmul( transpose(conjg(rightevector)) , matmul(hamiltonian,rightevector) )
+   call printmatrix("Re Diagonalized Hamiltonian",  real(diagonal), "F12.8")
+end if
+
+if(toprint .and. kpointindex==test) then
+   ! H = g.D
+   diagonal = matmul( transpose(conjg(leftevector)) , matmul(hamiltonian,rightevector) )
+   call printmatrix("Re Diagonalized Hamiltonian",  real(diagonal), "F12.8")
+end if
+
+stop
+return
+
+
+
+
+
+
+
+
+
+if(toprint .and. kpointindex==test) then
+print *
+print *, "r1.r8 ", dot_product(rightevector(:,1),rightevector(:,8))
+print *, "r2.r7 ", dot_product(rightevector(:,2),rightevector(:,7))
+print *, "r4.r5 ", dot_product(rightevector(:,4),rightevector(:,5))
+print *
+end if
+   !Constructing the eigenvector for -lambda to related with the one for lambda by R_{lambda}=(a1,a2,a3,...,b1,b2,b3,...) --> R_{-lambda}=(b1,b2,b3,...,a1,a2,a3,...)* . This will be required for R^dagger.g.R = g that is required for b_n = R(:,n) to represent the new bosons operator that must satisfy the bosons commutation relations: [vec{a},vec{a^dagger}]=g.
+   do j=1, naucell
+      rightevector(naucell+1:twonaucell,twonaucell+1-j) = conjg( rightevector(1:naucell           ,j) )
+      rightevector(1:naucell           ,twonaucell+1-j) = conjg( rightevector(naucell+1:twonaucell,j) )
+   end do
+
+   if(toprint .and. kpointindex==test) call printmatrix("Eigenvectors of Dmatrix structured", real(rightevector), format)
+
+if(toprint .and. kpointindex==test) then
+print *
+print *, "r1.r8 ", dot_product(rightevector(:,1),rightevector(:,8))
+print *, "r2.r7 ", dot_product(rightevector(:,2),rightevector(:,7))
+print *, "r4.r5 ", dot_product(rightevector(:,4),rightevector(:,5))
+print *
+end if
+
+   !Creates the left eigenvectors from L = g.R^+.g This is needed for the normalization of the eigenvectors. The normalizing factor will be given in the diagonal of L.R
+   auxevector = transpose(conjg(rightevector))
+   !The next two lines implement the following multiplication: g.R^+.g . g is diagonal with 1 in the first upper half and -1 on the second half
+   auxevector(naucell+1:twonaucell,1:naucell) = -auxevector(naucell+1:twonaucell,1:naucell)
+   auxevector(1:naucell,naucell+1:twonaucell) = -auxevector(1:naucell,naucell+1:twonaucell)
+   ! L.R
+   diagonal = matmul( auxevector , rightevector )
+   if(toprint .and. kpointindex==test) call printmatrix("L.R", real(diagonal), "f12.8")
+
+   !Renormalizing the eigenvectors
+   do j=1, twonaucell
+      if( abs(diagonal(j,j)) .GE. zero_toler ) then
+         number = 1.0d0/sqrt(diagonal(j,j))
+      else
+         number = 1.0d0
+      end if
+      rightevector(:,j) = number*rightevector(:,j)
+   end do
+
+   auxevector = transpose(conjg(rightevector))
+   !The next two lines implement the following multiplication: g.R^+.g . g is diagonal with 1 in the first upper half and -1 on the second half
+   auxevector(naucell+1:twonaucell,1:naucell) = -auxevector(naucell+1:twonaucell,1:naucell)
+   auxevector(1:naucell,naucell+1:twonaucell) = -auxevector(1:naucell,naucell+1:twonaucell)
+   ! L.R
+   diagonal = matmul( auxevector , rightevector )
+   if(toprint .and. kpointindex==test) call printmatrix("L.R normalized", real(diagonal), "f12.8")
+
+   !Test of diagonalization. R^dagger.H.R must be diagonal with positive eigenvalues
+   if(toprint .and. kpointindex==test) then
+      ! H = g.D
+      hamiltonian(naucell+1:twonaucell,:) = -hamiltonian(naucell+1:twonaucell,:)
+      diagonal = matmul( transpose(conjg(rightevector)) , matmul(hamiltonian,rightevector) )
+      call printmatrix("Re Diagonalized Hamiltonian",  real(diagonal), "F12.8")
+   end if
+  
+   !Verify the commutation relationship. R^dagger.g.R = g must be satisfied.
+   auxevector = transpose(conjg(rightevector))
+   grightevector(:,:) = rightevector(:,:)
+   grightevector(1:naucell,:) = -rightevector(1:naucell,:)
+   ! grightevector(:,:) = rightevector(:,:)
+   ! grightevector(naucell+1:twonaucell,:) = -rightevector(naucell+1:twonaucell,:)
+   diagonal = matmul( auxevector, grightevector)
+   if(toprint .and. kpointindex==test) call printmatrix("R^+.g.R", real(diagonal), "F12.8")
+
+   summation = sum(abs(diagonal-g))
+   if( summation > zero_toler*1.d-5 ) then
+      print '(a,f12.8,a,i0,a)', "Bogoliubov Transformation failed: R^+.g.R - g = ", summation, " > 0  |  k point = ", kpointindex, ". Stopping..."
+      ! stop
+   end if
+stop
+
+end subroutine bogoliubov_transf
