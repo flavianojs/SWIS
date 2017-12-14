@@ -1,0 +1,50 @@
+!!!!!!!!!!!!!!!!! Simulation control board (Parameters) !!!!!!!!!!!!!
+&input
+dims = 1 1 0, !Determines the dimension of the problem. Each dimension shall be filled by 1 or 0
+npt = 30, naucell = 64, ncellpdim = 2, npath = 1, ncpdim = 1,! n. of k-point in the disperion; n. of atom in the unit cell; number of real space unit cell for the Fourier transformation
+latcons = 8.d0, nndist = 1.d0,
+spirit = .true.,
+!Unfolding:
+unfolding = .true.,
+nptomega = 30,
+maxomega = 12.0 , minomega = -0.0 , eta=2.0d-1,
+ 
+a1 = 1.0d0  0.0d0  0.0d0, !In unit of the lattice constant, 
+a2 = 0.0d0  1.0d0  0.0d0, ! i.e., a1 will become later a1=a1*latcons
+a3 = 0.0d0  0.0d0  0.0d0,
+!               phi       theta 
+polarization = 0.d0 0.d0,                              !z 
+! polarization = 0.0d0 1.57079632679490d0,                 !x
+! polarization = 1.57079632679490d0 1.57079632679490d0,  !y
+
+Jnn = 0.d0, Dnn = 0.0d0, kanis = 0.05d0 , hm0 = 0.0d0,
+hmagunitvec = 0.d0  0.d0 1.d0,
+
+spirit = .true.,
+toprint = .false.,
+analytics = .false.,
+calc_occup = .false., 
+mode = 1, !For which mode should the occup. numb. be calculated
+spin_dyn = 1
+/
+
+&input2
+!The high symmetry points P=(p1,p2,p3,p4) are given via the matrix M(4x4), where P=Mb, and b=(b1,b2,b3,0), the reciprocal lattice vectors 
+syptsMataux =
+	          -0.5d0  0.0d0  0.d0
+				  0.5d0  0.0d0  0.d0,
+
+basisname   = "inputfiles/spinconfig_AF8x8_3.txt",
+pairfile    = "inputfiles/pair_AF8x8.txt",
+latticefile = "inputfiles/lattice_AF8x8.dat"
+/
+
+&input3
+!For the ground state program
+itmax   = 8000000, 
+epsi    = 1.d-7,
+step    = 0.05d0,
+rinit   = .true.,
+itwrite = .true. 
+/
+
