@@ -34,6 +34,7 @@ module mod_global
    logical :: analytics=.false.
    logical :: calc_occup=.false. !Occup. number is calculated on the first k point of the k-path
    integer :: mode=1
+   integer :: spin_dyn = 1
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
@@ -122,7 +123,7 @@ contains
       character(len=1000) :: read_in_data
 
       ! A list to be read on the input file: inputcardsky.f90
-      namelist /input/ dims, npt, nptomega, naucell, ncellpdim, npath, latcons, a1, a2, a3, Jnn, Dnn, kanis, hm0, hmagunitvec, nndist, maxomega, minomega, eta, ncpdim, spirit, toprint, unfolding, analytics, calc_occup, mode, polarization
+      namelist /input/ dims, npt, nptomega, naucell, ncellpdim, npath, latcons, a1, a2, a3, Jnn, Dnn, kanis, hm0, hmagunitvec, nndist, maxomega, minomega, eta, ncpdim, spirit, toprint, unfolding, analytics, calc_occup, mode, polarization, spin_dyn
       namelist /input2/ Uweight, syptsMataux, basisname, pairfile, latticefile
          
       ! Reading the inputs and allocating variables   
@@ -171,9 +172,10 @@ contains
       amat(2,:) = a2
       amat(3,:) = a3
       bmat(1:dim,1:dim) = 2.d0*pi* transpose(inv(amat(1:dim,1:dim)))
-      b1 = bmat(1,:)
-      b2 = bmat(2,:)
-      b3 = bmat(3,:)
+
+      b1 = bmat(1,:)*norm2(a1)
+      b2 = bmat(2,:)*norm2(a2)
+      b3 = bmat(3,:)*norm2(a3)
       
       call kpointsinitialization()
       !end: To calculate the k path where the dispersion will be calculated
@@ -362,7 +364,7 @@ contains
       end do
       write(333, fmt=*)
       do i=-2,2; do j=-2,2
-         write(333, fmt=*) (b1*i + b2*j)*latcons
+         write(333, fmt=*) (b1*i + b2*j)
       end do; end do
    end subroutine kpointsinitialization
  
@@ -429,8 +431,13 @@ contains
                Jtemp = 0.d0
                if(spirit) then
                   do i = 1, ninteraction_pairs
-                     if( abs(sum( r0jaux-positions(i,:) )) < zero_toler ) then
+                     if( sum(abs( r0jaux-positions(i,:) )) < zero_toler ) then
                         nnn=nnn+1
+                        ! print *, "l1, l2, i", l1, l2, i;
+                        ! print*, 'abs', sum(abs( r0jaux-positions(i,:) ))
+                        ! print*, 'r-p', r0jaux-positions(i,:) 
+                        ! print*, 'r0jaux', r0jaux
+                        ! print*, 'pos(i,', positions(i,:); pause
                         Dx = DJvect(i,1)
                         Dy = DJvect(i,2)
                         Dz = DJvect(i,3)
@@ -619,7 +626,7 @@ contains
       open( unit=666, file=formt )
 
       !To print the crystal
-      do i = -dims(1)*2,dims(1)*2; do m = -dims(2)*2,dims(2)*2
+      do i = -dims(1)*spin_dyn,dims(1)*spin_dyn; do m = -dims(2)*spin_dyn,dims(2)*spin_dyn
       do j = 1, naucell
          
          !These 4 next lines were used to write a spin spiral lattice in 2d with a 16a pitch
@@ -646,8 +653,8 @@ contains
       real, parameter :: S=1.0d0
       real :: aa1(3), aa2(3)
       integer :: info=0
-      real(kind=pc) :: alpha, q(3), c1, c2, s1, s2, cphi, sphi, k_a1, k_a2, phi, JD, qq
-      complex(kind=pc) :: Dpp, Dmp, Dpm, prefact1pp, prefact2pp, prefact1pm, prefact2pm, J00, mat(2,2), evalues(2), leftevector(2,2), rightevector(2,2)
+      real(kind=pc) :: alpha, q(3), c1, c2, s1, s2, cphi, sphi, k_a1, k_a2, phi!, JD, qq
+      complex(kind=pc) :: Dpp, Dpm, prefact1pp, prefact2pp, prefact1pm, prefact2pm, J00, mat(2,2), evalues(2), leftevector(2,2), rightevector(2,2)!, Dmp
       complex(kind=pc) :: work(4) !work space for the diagonalization routine.
       double precision :: rwork(4) !work space for the diagonalization routine.     
 
@@ -915,9 +922,9 @@ contains
          ! eta = eta*maxomega
          maxomegaOK = .true.
 
-         write(format,fmt="(a,f7.3,a,f7.3,a)") "'s/set yrange.*/set yrange[", minomega, " :", maxomega, " ]/'"
-         format="sed -i '' "//format(1:50)//" disp_unfol.gnu"
-         call system(format)
+         ! write(format,fmt="(a,f7.3,a,f7.3,a)") "'s/set yrange.*/set yrange[", minomega, " :", maxomega, " ]/'"
+         ! format="sed -i '' "//format(1:50)//" disp_unfol.gnu"
+         ! call system(format)
       else
          do while(.not.maxomegaOK)
 !$          call OMP_set_lock(lck)
@@ -1052,7 +1059,7 @@ contains
       open( unit=333, file=formt )
 
       do i=-2,2; do j=-2,2
-         write(333, fmt=*) (b1*i + b2*j)*latcons
+         write(333, fmt=*) (b1*i + b2*j)
       end do; end do
       write(333, fmt=*)
 
