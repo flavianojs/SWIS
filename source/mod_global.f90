@@ -25,7 +25,7 @@ module mod_global
 
    !The Interactions
    real(kind=pc) :: Jnn=0.0d0, Dnn=0.d0, kanis=0.d0, hm0=0.d0
-   real(kind=pc) :: hmagfield, hmagunitvec(3)
+   real(kind=pc) :: hmagfield, hmagunitvec(3), kaniunitvec(3) = [0.d0, 0.d0, 1.d0]
 
    !Calculations to be performed
    logical :: spirit = .false.
@@ -118,12 +118,17 @@ contains
    subroutine initialization()
       implicit none
       integer :: i, dim, counter, reading_status, d1, d2, d3, l1, l2
-      real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization, Sx, Sy, Sz
+      real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization, Sx, Sy, Sz, c1(3), c2(3), c3(3), c0(3)
       complex(kind=pc) :: HP(3,3), HPinv(3,3), aux(3,3)
       character(len=1000) :: read_in_data
 
+      c0 = [0.123456789, 0.123456789, 0.123456789]
+      c1 = c0
+      c2 = c0
+      c3 = c0
+
       ! A list to be read on the input file: inputcardsky.f90
-      namelist /input/ dims, npt, nptomega, naucell, ncellpdim, npath, latcons, a1, a2, a3, Jnn, Dnn, kanis, hm0, hmagunitvec, nndist, maxomega, minomega, eta, ncpdim, spirit, toprint, unfolding, analytics, calc_occup, mode, polarization, spin_dyn
+      namelist /input/ dims, npt, nptomega, naucell, ncellpdim, npath, latcons, a1, a2, a3, Jnn, Dnn, kanis, hm0, hmagunitvec, kaniunitvec, nndist, maxomega, minomega, eta, ncpdim, spirit, toprint, unfolding, analytics, calc_occup, mode, polarization, spin_dyn, c1, c2, c3
       namelist /input2/ Uweight, syptsMataux, basisname, pairfile, latticefile
          
       ! Reading the inputs and allocating variables   
@@ -151,6 +156,9 @@ contains
       end do
 
       syptsMat = transpose(syptsMataux)
+
+      !make sure we have a unitarian vector
+      kaniunitvec = kaniunitvec / norm2(kaniunitvec)
 
       hmagfield = hm0
       ! hmagfield = hm0*abs(Dnn**2/Jnn)
@@ -228,18 +236,30 @@ contains
 
          !Reading the interaction pairs
          open(unit=92, file=pairfile, status="old")
+
          counter = 0
          do 
             read(unit=92, fmt="(a)", iostat=reading_status) read_in_data
             if( reading_status < 0 ) exit
-            if( reading_status > 0 ) stop "Sub initialization() error: On reading interaction pair file 'pairfile'."
+            if( reading_status > 0 ) stop "Sub initialization() error: On reading interaction pair file 'pairfile'. Stopping."
             if( read_in_data(1:1) == "#" .or. read_in_data(1:1) == "i" ) cycle
-            read( read_in_data, fmt=* ) l1, l2, d1, d2, d3, Dx, Dy, Dz, Jnn
+            read( read_in_data, fmt=* , iostat=reading_status) l1, l2, d1, d2, d3, Dx, Dy, Dz, Jnn
+            if( reading_status .ne. 0 ) cycle
+            ! if( reading_status .ne. 0 ) stop "Sub initialization() error: On reading interaction pair file 'pairfile'. Stopping."
 
             counter = counter + 1
             if(counter>1000) stop "Sub initialization() error: There are more than 1000 entry on the 'pairfile'. 'mod_global' has to be modified."
 
-            positions(counter,:) = (d1*a1 + d2*a2 + d3*a3) / latcons
+            if( norm2(c1-c0) < zero_toler .or. norm2(c2-c0) < zero_toler .or. norm2(c3-c0) < zero_toler ) then
+               if( counter == 1 ) print *, "Set of c1, c2, c3 NOT given"
+               positions(counter,:) = ( basis(l2,:) - basis(l1,:) ) + (d1*a1 + d2*a2 + d3*a3) / latcons
+            else
+               if( counter == 1 ) print *, "Set of c1, c2, c3 GIVEN"
+               positions(counter,:) = d1*c1 + d2*c2 + d3*c3
+            end if
+            if( counter == 1 )print *, "Interactions pair positions"
+            print "(3(f12.8))",  positions(counter,:)
+
             !This factor of 2 is to ajust difference between this hamiltonian here and the spirit code
             DJvect(counter,:) = 2.d0*[Dx, Dy, Dz, Jnn] 
          end do
@@ -397,7 +417,7 @@ contains
       implicit none
       complex(kind=pc), intent(out) :: Dmatrix(effnkpt,twonaucell,twonaucell) !Dmatrix is the one to be diagonalized to provide the spinwave dispersion.
       integer :: m, n, l1, l2, i, j, nnn, sumnnn, ikptn
-      real(kind=pc) :: r0jaux(3), Rotmati(3,3), Rotmatj(3,3), modr0j, k(3)
+      real(kind=pc) :: r0jaux(3), Rotmati(3,3), Rotmatj(3,3), norm_r0j, k(3)
       complex(kind=pc) :: HPmatrixi(3,3), HPmatrixj(3,3), HPbase(3,3), Dk(naucell,naucell,2,2), D0j(naucell,ncell,naucell,2,2), A0j_tilde(naucell,ncell,naucell,2,2), J0j(naucell,ncell,naucell,3,3), hmagvec(naucell,3), Jtilde0zz(naucell), Jtemp(3,3), Jtemp2(3,3), sumJxy
 
       !A base format of the HP transformation matrix
@@ -423,15 +443,23 @@ contains
             HPmatrixj(3,3) = sqrt(ctwo/Si(l2))
             HPmatrixj = sqrt(Si(l2)/2.d0)*HPmatrixj
 
-            do j = 1, ncell
-               !Location of the second atom
-               r0jaux = r0j(j,:) + basis(l2,:) - basis(l1,:)
-               modr0j = sqrt(dot_product(r0jaux,r0jaux))
+            do j = 1, ncell 
+               !        Position of the second atom         Position of the first atom 
+               r0jaux =( r0j(j,:) + basis(l2,:) )   -  ( r0j(origcell,:) + basis(l1,:) )
+               norm_r0j = norm2(r0jaux)
 
                Jtemp = 0.d0
                if(spirit) then
                   do i = 1, ninteraction_pairs
-                     if( sum(abs( r0jaux-positions(i,:) )) < zero_toler ) then
+                     ! if (l1 == 1 .and. l2 == 11 ) then
+                     !    print *, "atom i", l1, "atom j", l2, "cell", j, "interaction", i
+                     !    print "(a,3f12.8)", "basis i",  basis(l1,:) 
+                     !    print "(a,3f12.8)", "basis j",  basis(l2,:) 
+                     !    print "(2(a,3f12.8))", "r0jaux ", r0jaux, " positions ", positions(i,:)
+                     !    pause
+                     ! end if
+
+                     if( norm2( r0jaux-positions(i,:) ) < zero_toler ) then
                         nnn=nnn+1
                         ! print *, "l1, l2, i", l1, l2, i;
                         ! print*, 'abs', sum(abs( r0jaux-positions(i,:) ))
@@ -452,13 +480,13 @@ contains
                      end if
                   end do
                        !Test to see if the current pair of atoms are at n.n distance
-               elseif( abs(modr0j - nndist) < zero_toler .and. modr0j > zero_toler ) then 
+               elseif( abs(norm_r0j - nndist) < zero_toler .and. norm_r0j > zero_toler ) then 
                   nnn=nnn+1
                   !The DMI vector is always rotated 90 degrees in relation to the vector connecting the pair of atoms
-                  Dx =-Dnn*r0jaux(2)/modr0j
-                  Dy = Dnn*r0jaux(1)/modr0j
+                  Dx =-Dnn*r0jaux(2)/norm_r0j
+                  Dy = Dnn*r0jaux(1)/norm_r0j
                   Dz = 0.d0
-                  ! Dz = Dnn*r0jaux(1)/modr0j
+                  ! Dz = Dnn*r0jaux(1)/norm_r0j
                   ! Dy = 0.d0
 
                   Jtemp(1,:) = [ Jx, Dz,-Dy ]
@@ -467,7 +495,9 @@ contains
                end if !if spirit mode
 
                if(j==origcell .and. l1==l2) then
-                  Jtemp(3,3) = Jtemp(3,3) + 2.0d0*kanis
+                  Jtemp(1,1) = Jtemp(1,1) + 2.0d0*kaniunitvec(1)*kanis
+                  Jtemp(2,2) = Jtemp(2,2) + 2.0d0*kaniunitvec(2)*kanis
+                  Jtemp(3,3) = Jtemp(3,3) + 2.0d0*kaniunitvec(3)*kanis
                end if
 
                Jtemp2 = matmul(  Jtemp, Rotmatj )
@@ -489,7 +519,7 @@ contains
 
 
       !Informs the number of n.n sites
-      print "(a,f18.10)", "Average number of n.n atoms: ", real(sumnnn)/naucell
+      print "(a,f18.10)", "Average number of atoms in the cluster (n. near neighbours):             ", real(sumnnn)/naucell
 
       !Tests the vanishing of the linear term of the HP transformation
       do l1 = 1, naucell
@@ -914,7 +944,7 @@ contains
       complex(kind=pc) :: N_alp_bet, N_mu_nu, gamma_scat(2,2)
       complex(kind=pc) :: paulimatrix(3,2,2), paulimatrix_cartesian(3,2,2), paulimatrix_cartesian_rotated(3,2,2)
 !$    integer(kind = OMP_lock_kind) :: lck
-      character(len=200) :: format
+      ! character(len=200) :: format
 
       if( kpointindex == 1 ) then
          if(maxomega == 0.123456789d0) maxomega = rescalf*dble(eigenvalues(naucell))!The max. omega will be proportional to the highest eigen-energy
