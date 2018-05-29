@@ -41,7 +41,7 @@ module mod_global
    !!!!!!!!!!!!!!!! Auto determined global variables !!!!!!!!!!!!!!!!!!!
    real(kind=pc) :: Jx, Jy, Jz, maxomega=0.123456789d0, minomega=0.123456789d0, eta=1.d-1 , rescalf=1.1d0, zero_toler=1.d-5
    real(kind=pc) :: Dx, Dy, Dz, hmag(3), bb(3,3), nndist=0.d0
-   real(kind=pc), allocatable :: r0j(:,:), anglesphi(:), anglestheta(:), Si(:), basis(:,:) , kpoints(:,:), dkpoints(:), symmpts(:,:), syptsMataux(:,:), syptsMat(:,:), Rotmat(:,:,:), Uweight(:)
+   real(kind=pc), allocatable :: r0j(:,:), anglesphi(:), anglestheta(:), Si(:), basis(:,:) , kpoints(:,:), dkpoints(:), symmpts(:,:), syptsMataux(:,:), syptsMat(:,:), Rotmat(:,:,:), Uweight(:), expected_valueS(:,:,:)
    integer :: ninteraction_pairs, ncell !Number of unit cells
    integer :: origcell !The index of the origin cell
    complex(kind=pc), allocatable :: highsymm(:,:), Rotpm(:,:,:), g(:,:)
@@ -118,7 +118,7 @@ contains
    subroutine initialization()
       implicit none
       integer :: i, dim, counter, reading_status, d1, d2, d3, l1, l2
-      real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization, Sx, Sy, Sz, c1(3), c2(3), c3(3), c0(3)
+      real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization(3), Sx, Sy, Sz, c1(3), c2(3), c3(3), c0(3)
       complex(kind=pc) :: HP(3,3), HPinv(3,3), aux(3,3)
       character(len=1000) :: read_in_data
 
@@ -168,7 +168,7 @@ contains
       a2=a2*latcons
       a3=a3*latcons
 
-      allocate( anglesphi(naucell), anglestheta(naucell), Si(naucell), basis(naucell,3), Rotmat(naucell,3,3), Rotpm(naucell,3,3) )
+      allocate( anglesphi(naucell), anglestheta(naucell), Si(naucell), basis(naucell,3), Rotmat(naucell,3,3), Rotpm(naucell,3,3), expected_valueS(npt,naucell,3) )
       
       !This determines the position in real space of each unit cell
       call crystallattice()
@@ -273,9 +273,9 @@ contains
 
       net_magnetization = 0.d0
       do i = 1, naucell
-         net_magnetization = net_magnetization + cos(anglestheta(i))*Si(i)
+         net_magnetization = net_magnetization + [ cos(anglesphi(i))*sin(anglestheta(i))*Si(i), sin(anglesphi(i))*sin(anglestheta(i))*Si(i), cos(anglestheta(i))*Si(i) ]
       end do
-      print *, "Net Sz / per site=", net_magnetization/naucell
+      print "(a,3E20.8)", "Net magnetization / per site=", net_magnetization/naucell
       
       !Computing rotation matrixes
       do i = 1, naucell
@@ -357,9 +357,15 @@ contains
       effnkpt = 0
       do j = 1, npath
          k = symmpts(j+1,:)-symmpts(j,:)
-         nkpt_npath(j) = int( dble(npt) * sqrt(dot_product(k,k)) / totalpathlength )
+
+         !This if is to accept path of length zero, i.e., to calculate on a single point.
+         if( abs(totalpathlength) < zero_toler ) then
+            nkpt_npath(j) = 1
+         else
+            nkpt_npath(j) = int( dble(npt) * sqrt(dot_product(k,k)) / totalpathlength )
+         end if
          effnkpt = effnkpt + nkpt_npath(j)
-         if(nkpt_npath(j)<2) then
+         if(nkpt_npath(j)<1) then
             print "(a,i0,a,i0,a)", "Number of k points in the path ", j, " is too small: ", nkpt_npath(j), ". Increase 'npt'. Stopping."
             stop
          end if
@@ -940,7 +946,7 @@ contains
       real(kind=pc), intent(in) :: k(3)
       real(kind=pc), intent(out) :: spectra(nptomega,5)
       integer :: r, p, mu, nu, alpha, beta, sii, ssf
-      real(kind=pc) :: omega, diff(3), incrementomega, Rotmat(3,3)
+      real(kind=pc) :: omega, diff(3), incrementomega, Rotmat(3,3)!, tempD(4,8)
       complex(kind=pc) :: N_alp_bet, N_mu_nu, gamma_scat(2,2)
       complex(kind=pc) :: paulimatrix(3,2,2), paulimatrix_cartesian(3,2,2), paulimatrix_cartesian_rotated(3,2,2)
 !$    integer(kind = OMP_lock_kind) :: lck
@@ -1051,6 +1057,58 @@ contains
 
          spectra(p,:) = [ omega, real(gamma_scat(1,1)), real(gamma_scat(1,2)), real(gamma_scat(2,2)), real(gamma_scat(2,1)) ]
       end do !p, Number of points in the y direction
+
+
+
+      !The next lines prints on the screen the eigenvector and eigenvalues
+      !It it useful to understand the structure them. For example, the eigenvector
+      !should be block diagonal for FM, and with off-diagonal when D or non-collinearity
+      !is present.
+
+      ! print "(a,100f12.8)", "real E=", real(eigenvalues)
+      ! print "(a,100f12.8)", "imag E=", aimag(eigenvalues)
+      ! tempD(1:2,1:2) =  real(eigenvector(1,1,:,:))
+      ! tempD(1:2,3:4) =  real(eigenvector(1,2,:,:))
+      ! tempD(3:4,1:2) =  real(eigenvector(2,1,:,:))
+      ! tempD(3:4,3:4) =  real(eigenvector(2,2,:,:))
+
+      ! tempD(1:2,5:6) = aimag(eigenvector(1,1,:,:))
+      ! tempD(1:2,7:8) = aimag(eigenvector(1,2,:,:))
+      ! tempD(3:4,5:6) = aimag(eigenvector(2,1,:,:))
+      ! tempD(3:4,7:8) = aimag(eigenvector(2,2,:,:))
+      ! call printmatrix( "Real Rmatrix", tempD, "f12.4" )
+      ! pause
+
+
+
+      write(unit=987, fmt="(a,i3,a,3f16.8)") "idx ", kpointindex, " K=", k
+      do r = 1, naucell
+         expected_valueS(kpointindex,r,:) = 0.d0
+         do mu = 1, naucell
+            ! N_mu_nu =  - eigenvector(1,2,mu,r)*eigenvector(2,1,mu,naucell+1-r) - eigenvector(1,1,mu,r)*eigenvector(2,2,mu,naucell+1-r)
+            N_mu_nu =  - eigenvector(2,1,mu,r)*conjg(eigenvector(2,1,mu,r)) - eigenvector(1,1,mu,r)*conjg(eigenvector(1,1,mu,r))
+            ! N_mu_nu =  - eigenvector(1,2,mu,r)*conjg(eigenvector(1,2,mu,r)) - eigenvector(1,1,mu,r)*conjg(eigenvector(1,1,mu,r))
+
+            ! write(unit=987, fmt="(a,i3,a,2f12.8,a,2f12.8)") "mu=", mu, " N++N--=",  eigenvector(2,2,mu,r)*eigenvector(1,1,mu,r), " N-+N+-=", eigenvector(2,1,mu,r)*eigenvector(1,2,mu,r)
+            if( abs(aimag(N_mu_nu)) > zero_toler ) write(unit=987, fmt="(a,f12.8,a)") " Im(N_mu_nu)=", aimag(N_mu_nu), " not zero."
+
+            Rotmat(:,:) = rotationmatrix( anglesphi(mu), anglestheta(mu) )
+
+            !local expected value vector
+            diff = [ 0.d0, 0.d0, real(N_mu_nu) ] 
+            !Rotation to the global reference frame
+            diff = real( matmul(Rotmat, diff) )
+
+            expected_valueS(kpointindex,r,:) = expected_valueS(kpointindex,r,:) + diff
+         end do
+         write(unit=987, fmt="(a,i3,a,3f16.8,a,1f8.4,a,2f16.8)") "   r=", r, " <S_r>", expected_valueS(kpointindex,r,:), "  |<S_r>|", norm2(expected_valueS(kpointindex,r,:)) , "      E_r= ", eigenvalues(r) 
+         if( r==naucell-0 ) write(unit=981, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
+         if( r==naucell-1 ) write(unit=982, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
+         if( r==naucell-2 ) write(unit=983, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
+         if( r==naucell-3 ) write(unit=984, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
+      end do
+      write(unit=985, fmt="(i3,100f16.8)") kpointindex, ( norm2(expected_valueS(kpointindex,r,:)), r=1, naucell )
+
    end subroutine unfoldingnoncol
 
    function delta(omega)

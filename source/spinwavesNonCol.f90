@@ -84,7 +84,6 @@ program dispersion
       !Unfolding. Spectral function calculation
       if(unfolding) &
 !$       call unfoldingnoncol(i,halfevalues,evectorUnfol,k,spectra(i,:,:),lck)
-!!$       call unfoldingnoncol(i,halfevalues,halfevector,k,spectra(i,:,:),lck)
          ! call unfoldingnoncol(i,halfevalues,halfevector,k,spectra(i,:,:))
 
 !       if(unfolding) &
@@ -104,7 +103,12 @@ program dispersion
 
       !Informe on the terminal which points in being calculated (but once every 100 pts.)
       write(formt,fmt="(a,i3,a,i4,a,3f7.3)") "Progress: ",i*100/effnkpt, " %  K-point: ", i, "      k: ", k
-      if(mod(i,effnkpt/5) == 0) call printtime(formt)
+      !This if allow to have this k points. For a single k point calculation, for example.
+      if(effnkpt<5) then 
+         call printtime(formt)
+      else
+         if(mod(i,effnkpt/5) == 0) call printtime(formt)
+      end if
 
       ! deallocate( evalues, evaluesTOT, halfevalues, leftevector, rightevector, rightevectorTOT, halfevector, evectorUnfol, work, rwork, rwork2, spectra, disp_matrix )
       ! deallocate( diagonal, nodiagonal, bwork )
