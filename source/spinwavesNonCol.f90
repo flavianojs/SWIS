@@ -32,7 +32,7 @@ program dispersion
    allocate( Dmatrix(effnkpt,twonaucell,twonaucell) )
    ! allocate( evalues(twonaucell), evaluesTOT(effnkpt,twonaucell), halfevalues(naucell), leftevector(twonaucell,twonaucell), rightevector(twonaucell, twonaucell), rightevectorTOT(effnkpt, twonaucell, twonaucell), halfevector(naucell, naucell), evectorUnfol(2,2,naucell,naucell), work(2*twonaucell), rwork(2*twonaucell), rwork2(twonaucell), spectra(effnkpt,nptomega,5), disp_matrix(effnkpt,naucell) )
    ! allocate( diagonal(twonaucell,twonaucell), nodiagonal(twonaucell,twonaucell), bwork(twonaucell) )
-   allocate( rightevectorTOT(effnkpt, twonaucell, twonaucell), evaluesTOT(effnkpt,twonaucell) , spectra(effnkpt,nptomega,5), disp_matrix(effnkpt,naucell), highsymm(npath,naucell+1) )
+   allocate( rightevectorTOT(effnkpt, twonaucell, twonaucell), evaluesTOT(effnkpt,twonaucell) , spectra(effnkpt,nptomega,13), disp_matrix(effnkpt,naucell), highsymm(npath,naucell+1) )
 
 !$ call omp_init_lock(lck)
    maxomegaOK = .false.

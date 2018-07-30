@@ -21,7 +21,7 @@ module mod_global
    real(kind=pc) :: a1(3), b1(3)
    real(kind=pc) :: a2(3), b2(3)
    real(kind=pc) :: a3(3), b3(3)
-   real(kind=pc) :: polarization(2) = [0.d0,0.d0]
+   real(kind=pc) :: polarization1(2) = [0.d0,0.d0], polarization2(2) = [0.d0,0.d0], polarization3(2) = [0.d0,0.d0]
 
    !The Interactions
    real(kind=pc) :: Jnn=0.0d0, Dnn=0.d0, kanis=0.d0, hm0=0.d0
@@ -128,7 +128,7 @@ contains
       c3 = c0
 
       ! A list to be read on the input file: inputcardsky.f90
-      namelist /input/ dims, npt, nptomega, naucell, ncellpdim, npath, latcons, a1, a2, a3, Jnn, Dnn, kanis, hm0, hmagunitvec, kaniunitvec, nndist, maxomega, minomega, eta, ncpdim, spirit, toprint, unfolding, analytics, calc_occup, mode, polarization, spin_dyn, c1, c2, c3
+      namelist /input/ dims, npt, nptomega, naucell, ncellpdim, npath, latcons, a1, a2, a3, Jnn, Dnn, kanis, hm0, hmagunitvec, kaniunitvec, nndist, maxomega, minomega, eta, ncpdim, spirit, toprint, unfolding, analytics, calc_occup, mode, polarization1, polarization2, polarization3, spin_dyn, c1, c2, c3
       namelist /input2/ Uweight, syptsMataux, basisname, pairfile, latticefile
          
       ! Reading the inputs and allocating variables   
@@ -159,10 +159,9 @@ contains
 
       !make sure we have a unitarian vector
       kaniunitvec = kaniunitvec / norm2(kaniunitvec)
+      hmagunitvec = hmagunitvec / norm2(hmagunitvec)
 
-      hmagfield = hm0
-      ! hmagfield = hm0*abs(Dnn**2/Jnn)
-      hmag(:) = hmagfield*hmagunitvec
+      hmag(:) = hm0*hmagunitvec
       Jx=Jnn; Jy=Jnn; Jz=Jnn
       a1=a1*latcons
       a2=a2*latcons
@@ -179,6 +178,7 @@ contains
       amat(1,:) = a1
       amat(2,:) = a2
       amat(3,:) = a3
+      bmat = 0.d0 !This is important to initialize the part of the bmat matrix that wont be initialized on the next line
       bmat(1:dim,1:dim) = 2.d0*pi* transpose(inv(amat(1:dim,1:dim)))
 
       b1 = bmat(1,:)*norm2(a1)
@@ -529,7 +529,7 @@ contains
 
       !Tests the vanishing of the linear term of the HP transformation
       do l1 = 1, naucell
-         sumJxy = hmagvec(l1,1)
+         sumJxy = hmagvec(l1,2)
          do l2 = 1, naucell
             do i = 1, ncell
                sumJxy = sumJxy + J0j(l1,i,l2,1,3)
@@ -554,7 +554,7 @@ contains
             Jtilde0zz(l1) = Jtilde0zz(l1) + Si(l2) * J0j(l1,i,l2,3,3)
          end do
       end do; end do
-    ! print *,"Constant:", Jtilde0zz; stop
+      ! print *,"Constant:", Jtilde0zz; stop
 
       j = origcell
       do l1=1, naucell
@@ -636,7 +636,9 @@ contains
       print "(3(a,f5.2),a)", " b1 = ", b1(1), "d0   ", b1(2), "d0   ", b1(3), "d0,"
       print "(3(a,f5.2),a)", " b2 = ", b2(1), "d0   ", b2(2), "d0   ", b2(3), "d0,"
       print "(3(a,f5.2),a)", " b3 = ", b3(1), "d0   ", b3(2), "d0   ", b3(3), "d0,"
-      print "(2(a,f5.2),a)", " polarization = ", polarization(1), "d0   ", polarization(2), "d0,"
+      print "(2(a,f5.2),a)", " polarization1 = ", polarization1(1), "d0   ", polarization1(2), "d0,"
+      print "(2(a,f5.2),a)", " polarization2 = ", polarization2(1), "d0   ", polarization2(2), "d0,"
+      print "(2(a,f5.2),a)", " polarization3 = ", polarization3(1), "d0   ", polarization3(2), "d0,"
       print *
       print "(4(a,f4.1),a)", " Jnn =", Jnn, "d0, Dnn =", Dnn, "d0, kanis =", kanis, "d0, hm0 =", hm0, "d0,"
       print "(3(a,f5.2),a)", " hmagunitvec = ",hmagunitvec(1), "d0 ",hmagunitvec(2), "d0 ",hmagunitvec(3), "d0,"
@@ -944,11 +946,11 @@ contains
       integer, intent(in) :: kpointindex
       complex(kind=pc), intent(in) :: eigenvalues(naucell), eigenvector(2,2,naucell,naucell)
       real(kind=pc), intent(in) :: k(3)
-      real(kind=pc), intent(out) :: spectra(nptomega,5)
-      integer :: r, p, mu, nu, alpha, beta, sii, ssf
-      real(kind=pc) :: omega, diff(3), incrementomega, Rotmat(3,3)!, tempD(4,8)
-      complex(kind=pc) :: N_alp_bet, N_mu_nu, gamma_scat(2,2)
-      complex(kind=pc) :: paulimatrix(3,2,2), paulimatrix_cartesian(3,2,2), paulimatrix_cartesian_rotated(3,2,2)
+      real(kind=pc), intent(out) :: spectra(nptomega,13)
+      integer :: r, p, mu, nu, alpha, beta, sii, ssf, polariz
+      real(kind=pc) :: omega, diff(3), incrementomega, Rotmat(3,3), polarizations(3,2)!, tempD(4,8)
+      complex(kind=pc) :: N_alp_bet, N_mu_nu, gamma_scat(3,2,2)
+      complex(kind=pc) :: paulimatrix(3,3,2,2), paulimatrix_cartesian(3,2,2), paulimatrix_cartesian_rotated(3,2,2)
 !$    integer(kind = OMP_lock_kind) :: lck
       ! character(len=200) :: format
 
@@ -978,36 +980,22 @@ contains
       paulimatrix_cartesian(3,1,:)=[1.d0, 0.d0]
       paulimatrix_cartesian(3,2,:)=[0.d0,-1.d0]
 
+      polarizations(1,:) = polarization1 
+      polarizations(2,:) = polarization2 
+      polarizations(3,:) = polarization3   
+
       !Computing rotation matrix
-      Rotmat(:,:) = rotationmatrix( polarization(1), polarization(2) )
+      do polariz = 1, 3
+         Rotmat(:,:) = rotationmatrix( polarizations(polariz,1), polarizations(polariz,2) )
 
-      paulimatrix_cartesian_rotated(1,:,:) = Rotmat(1,1)*paulimatrix_cartesian(1,:,:) + Rotmat(1,2)*paulimatrix_cartesian(2,:,:) + Rotmat(1,3)*paulimatrix_cartesian(3,:,:) 
-      paulimatrix_cartesian_rotated(2,:,:) = Rotmat(2,1)*paulimatrix_cartesian(1,:,:) + Rotmat(2,2)*paulimatrix_cartesian(2,:,:) + Rotmat(2,3)*paulimatrix_cartesian(3,:,:) 
-      paulimatrix_cartesian_rotated(3,:,:) = Rotmat(3,1)*paulimatrix_cartesian(1,:,:) + Rotmat(3,2)*paulimatrix_cartesian(2,:,:) + Rotmat(3,3)*paulimatrix_cartesian(3,:,:) 
+         paulimatrix_cartesian_rotated(1,:,:) = Rotmat(1,1)*paulimatrix_cartesian(1,:,:) + Rotmat(1,2)*paulimatrix_cartesian(2,:,:) + Rotmat(1,3)*paulimatrix_cartesian(3,:,:) 
+         paulimatrix_cartesian_rotated(2,:,:) = Rotmat(2,1)*paulimatrix_cartesian(1,:,:) + Rotmat(2,2)*paulimatrix_cartesian(2,:,:) + Rotmat(2,3)*paulimatrix_cartesian(3,:,:) 
+         paulimatrix_cartesian_rotated(3,:,:) = Rotmat(3,1)*paulimatrix_cartesian(1,:,:) + Rotmat(3,2)*paulimatrix_cartesian(2,:,:) + Rotmat(3,3)*paulimatrix_cartesian(3,:,:) 
 
-      !x polarization
-      ! paulimatrix_cartesian(3,1,:)=-[0.d0, 1.d0]
-      ! paulimatrix_cartesian(3,2,:)=-[1.d0, 0.d0]
-      
-      ! paulimatrix_cartesian(2,1,:)=[czero,   -ii]
-      ! paulimatrix_cartesian(2,2,:)=[   ii, czero]
-
-      ! paulimatrix_cartesian(1,1,:)=[1.d0, 0.d0]
-      ! paulimatrix_cartesian(1,2,:)=[0.d0,-1.d0]
-
-      !y polarization
-      ! paulimatrix_cartesian(3,1,:)=-[0.d0, 1.d0]
-      ! paulimatrix_cartesian(3,2,:)=-[1.d0, 0.d0]
-      
-      ! paulimatrix_cartesian(1,1,:)=-[czero,   -ii]
-      ! paulimatrix_cartesian(1,2,:)=-[   ii, czero]
-
-      ! paulimatrix_cartesian(2,1,:)=[1.d0, 0.d0]
-      ! paulimatrix_cartesian(2,2,:)=[0.d0,-1.d0]
-
-      paulimatrix(1,:,:)=0.5d0*(paulimatrix_cartesian_rotated(1,:,:)+ii*paulimatrix_cartesian_rotated(2,:,:))
-      paulimatrix(2,:,:)=0.5d0*(paulimatrix_cartesian_rotated(1,:,:)-ii*paulimatrix_cartesian_rotated(2,:,:))
-      paulimatrix(3,:,:)=paulimatrix_cartesian_rotated(3,:,:)
+         paulimatrix(polariz,1,:,:)=0.5d0*(paulimatrix_cartesian_rotated(1,:,:)+ii*paulimatrix_cartesian_rotated(2,:,:))
+         paulimatrix(polariz,2,:,:)=0.5d0*(paulimatrix_cartesian_rotated(1,:,:)-ii*paulimatrix_cartesian_rotated(2,:,:))
+         paulimatrix(polariz,3,:,:)=paulimatrix_cartesian_rotated(3,:,:)
+      end do
 
       incrementomega = (maxomega - minomega)/dble(nptomega-1)
       do p = 1, nptomega !Number of points in the y direction
@@ -1050,12 +1038,14 @@ contains
                N_alp_bet = N_alp_bet + exp( -ii*dot_product(k, diff) ) * Uweight(mu)*Uweight(nu) * N_mu_nu
             end do; end do !mu, nu
             do sii=1,2; do ssf=1,2
-               gamma_scat(sii,ssf) = gamma_scat(sii,ssf) + paulimatrix(alpha,sii,ssf)*paulimatrix(beta,ssf,sii)*N_alp_bet
+               do polariz = 1, 3
+                  gamma_scat(polariz,sii,ssf) = gamma_scat(polariz,sii,ssf) + paulimatrix(polariz,alpha,sii,ssf)*paulimatrix(polariz,beta,ssf,sii)*N_alp_bet
+               end do
             end do; end do
          end do; end do  !alpha, beta
          gamma_scat = gamma_scat * 2.d0*pi!/dble(naucell)
 
-         spectra(p,:) = [ omega, real(gamma_scat(1,1)), real(gamma_scat(1,2)), real(gamma_scat(2,2)), real(gamma_scat(2,1)) ]
+         spectra(p,:) = [ omega, ( real(gamma_scat(polariz,1,1)), real(gamma_scat(polariz,1,2)), real(gamma_scat(polariz,2,2)), real(gamma_scat(polariz,2,1)), polariz = 1, 3 ) ]
       end do !p, Number of points in the y direction
 
 
@@ -1120,7 +1110,7 @@ contains
    subroutine outputdata(disp_matrix,spectra,rightevector,evalues)
       !Storage making
       implicit none
-      real(kind=pc), intent(in) :: disp_matrix(effnkpt,naucell), spectra(effnkpt,nptomega,5)
+      real(kind=pc), intent(in) :: disp_matrix(effnkpt,naucell), spectra(effnkpt,nptomega,13)
       complex(kind=pc), intent(in) :: rightevector(effnkpt,twonaucell,twonaucell), evalues(effnkpt,twonaucell)
       integer :: i, j, counter, m, n
       real(kind=pc) :: k(3), path, units=2.d0*pi/1.d0
@@ -1170,7 +1160,7 @@ contains
          
          !File "disp_unfol_XX.dat" contains the unfolded spectral function
          do j = 1, nptomega
-            write( unit=92, fmt= "( 6(f25.15,' ') )" ) path/units, spectra(i,j,:) 
+            write( unit=92, fmt= "( 14(f25.15,' ') )" ) path/units, spectra(i,j,:) 
          end do
          write( unit=92, fmt= * )      
          
