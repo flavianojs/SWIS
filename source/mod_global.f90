@@ -24,12 +24,14 @@ module mod_global
    real(kind=pc) :: polarization1(2) = [0.d0,0.d0], polarization2(2) = [0.d0,0.d0], polarization3(2) = [0.d0,0.d0]
 
    !The Interactions
-   real(kind=pc) :: Jnn=0.0d0, Dnn=0.d0, kanis=0.d0, hm0=0.d0
-   real(kind=pc) :: hmagfield, hmagunitvec(3), kaniunitvec(3) = [0.d0, 0.d0, 1.d0]
+   real(kind=pc) :: Jnn=0.0d0, Dnn=0.d0, kanis=0.d0, hm0=0.d0, muB=1.d0
+   real(kind=pc) :: hmagunitvec(3), kaniunitvec(3) = [0.d0, 0.d0, 1.d0], J_D_scaling=0.123456789d0
+   real(kind=pc) :: mu_s=1.d0, gamma=1.d0 ! mag mom equals to gamma times the spin operator: mu_s = gamma * S
 
    !Calculations to be performed
    logical :: spirit = .false.
    logical :: toprint = .false.
+   logical :: printD = .false.
    logical :: unfolding=.false.
    logical :: analytics=.false.
    logical :: calc_occup=.false. !Occup. number is calculated on the first k point of the k-path
@@ -121,6 +123,7 @@ contains
       real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization(3), Sx, Sy, Sz, c1(3), c2(3), c3(3), c0(3)
       complex(kind=pc) :: HP(3,3), HPinv(3,3), aux(3,3)
       character(len=1000) :: read_in_data
+      logical :: badindexing
 
       c0 = [0.123456789, 0.123456789, 0.123456789]
       c1 = c0
@@ -128,7 +131,7 @@ contains
       c3 = c0
 
       ! A list to be read on the input file: inputcardsky.f90
-      namelist /input/ dims, npt, nptomega, naucell, ncellpdim, npath, latcons, a1, a2, a3, Jnn, Dnn, kanis, hm0, hmagunitvec, kaniunitvec, nndist, maxomega, minomega, eta, ncpdim, spirit, toprint, unfolding, analytics, calc_occup, mode, polarization1, polarization2, polarization3, spin_dyn, c1, c2, c3
+      namelist /input/ dims, npt, nptomega, naucell, ncellpdim, npath, latcons, a1, a2, a3, Jnn, J_D_scaling, Dnn, kanis, hm0, muB, hmagunitvec, kaniunitvec, mu_s, gamma, nndist, maxomega, minomega, eta, ncpdim, spirit, toprint, printD, unfolding, analytics, calc_occup, mode, polarization1, polarization2, polarization3, spin_dyn, c1, c2, c3
       namelist /input2/ Uweight, syptsMataux, basisname, pairfile, latticefile
          
       ! Reading the inputs and allocating variables   
@@ -159,9 +162,11 @@ contains
 
       !make sure we have a unitarian vector
       kaniunitvec = kaniunitvec / norm2(kaniunitvec)
-      hmagunitvec = hmagunitvec / norm2(hmagunitvec)
+      kaniunitvec = kaniunitvec * kanis * gamma**2/(mu_s**2)
 
-      hmag(:) = hm0*hmagunitvec
+      hmagunitvec = hmagunitvec / norm2(hmagunitvec)
+      hmag(:) = hmagunitvec * (muB * hm0) * gamma
+
       Jx=Jnn; Jy=Jnn; Jz=Jnn
       a1=a1*latcons
       a2=a2*latcons
@@ -181,9 +186,9 @@ contains
       bmat = 0.d0 !This is important to initialize the part of the bmat matrix that wont be initialized on the next line
       bmat(1:dim,1:dim) = 2.d0*pi* transpose(inv(amat(1:dim,1:dim)))
 
-      b1 = bmat(1,:)*norm2(a1)
-      b2 = bmat(2,:)*norm2(a2)
-      b3 = bmat(3,:)*norm2(a3)
+      b1 = bmat(1,:)!*norm2(a1)
+      b2 = bmat(2,:)!*norm2(a2)
+      b3 = bmat(3,:)!*norm2(a3)
       
       call kpointsinitialization()
       !end: To calculate the k path where the dispersion will be calculated
@@ -213,7 +218,10 @@ contains
             !In the 'spirit' mode, the spin orientation are read in cartesian coordinates.
             read(unit=90, fmt=*) Sx, Sy, Sz
 
-            Si(i) = sqrt( Sx**2 + Sy**2 + Sz**2 )
+            Sx = Sx * (mu_s/gamma)
+            Sy = Sy * (mu_s/gamma) + hm0/(2*(kanis+20))
+            Sz = Sz * (mu_s/gamma) * cos( asin( hm0/(2*(kanis+20)) ) )
+            Si(i) = norm2([Sx, Sy, Sz])
             anglestheta(i) = acos( Sz/Si(i))
 
             if( Si(i) < zero_toler ) then
@@ -237,7 +245,13 @@ contains
          !Reading the interaction pairs
          open(unit=92, file=pairfile, status="old")
 
+         !This factor of 2 is to ajust difference between this hamiltonian here and the spirit code
+         if( J_D_scaling == 0.123456789d0 ) J_D_scaling = 2.d0
+         print "(a,f7.3,a,f7.3,a)", "J and D are being rescalled by 'J_D_scaling/(mu_s**2)'=", J_D_scaling, "/", mu_s**2, "."
+         print *, "When 'Spirit mode' is on, if not given, 'J_D_scaling' is automatically set to 2, to ajust differnce between the inner hamiltonian and the 'spirit code' one."
+
          counter = 0
+         badindexing = .true.
          do 
             read(unit=92, fmt="(a)", iostat=reading_status) read_in_data
             if( reading_status < 0 ) exit
@@ -247,12 +261,14 @@ contains
             if( reading_status .ne. 0 ) cycle
             ! if( reading_status .ne. 0 ) stop "Sub initialization() error: On reading interaction pair file 'pairfile'. Stopping."
 
+            if( l1 == 0 ) badindexing = .false.
+
             counter = counter + 1
             if(counter>1000) stop "Sub initialization() error: There are more than 1000 entry on the 'pairfile'. 'mod_global' has to be modified."
 
             if( norm2(c1-c0) < zero_toler .or. norm2(c2-c0) < zero_toler .or. norm2(c3-c0) < zero_toler ) then
-               if( counter == 1 ) print *, "Set of c1, c2, c3 NOT given"
-               positions(counter,:) = ( basis(l2,:) - basis(l1,:) ) + (d1*a1 + d2*a2 + d3*a3) / latcons
+               if( counter == 1 ) print "(a/,a)", "Basis index MUST start in 0 in the interactions file 'pairXX.txt'.", "Set of c1, c2, c3 NOT given." 
+               positions(counter,:) = ( basis(l2+1,:) - basis(l1+1,:) ) + (d1*a1 + d2*a2 + d3*a3) / latcons
             else
                if( counter == 1 ) print *, "Set of c1, c2, c3 GIVEN"
                positions(counter,:) = d1*c1 + d2*c2 + d3*c3
@@ -260,10 +276,11 @@ contains
             if( counter == 1 )print *, "Interactions pair positions"
             print "(3(f12.8))",  positions(counter,:)
 
-            !This factor of 2 is to ajust difference between this hamiltonian here and the spirit code
-            DJvect(counter,:) = 2.d0*[Dx, Dy, Dz, Jnn] 
+            DJvect(counter,:) = [Dx, Dy, Dz, Jnn] * J_D_scaling * gamma**2/(mu_s**2)
          end do
          close(unit=92)
+
+         if( badindexing ) stop "Most probably your indexing is wrong in the interaction file. Basis atom index should start at zero. Stopping."
 
          ninteraction_pairs = counter 
          print *, "Interaction parameters read from file. Number of interaction pairs:", ninteraction_pairs
@@ -275,7 +292,7 @@ contains
       do i = 1, naucell
          net_magnetization = net_magnetization + [ cos(anglesphi(i))*sin(anglestheta(i))*Si(i), sin(anglesphi(i))*sin(anglestheta(i))*Si(i), cos(anglestheta(i))*Si(i) ]
       end do
-      print "(a,3E20.8)", "Net magnetization / per site=", net_magnetization/naucell
+      print "(a,3F22.16)", "Net magnetization / per site=", net_magnetization/naucell
       
       !Computing rotation matrixes
       do i = 1, naucell
@@ -501,9 +518,9 @@ contains
                end if !if spirit mode
 
                if(j==origcell .and. l1==l2) then
-                  Jtemp(1,1) = Jtemp(1,1) + 2.0d0*kaniunitvec(1)*kanis
-                  Jtemp(2,2) = Jtemp(2,2) + 2.0d0*kaniunitvec(2)*kanis
-                  Jtemp(3,3) = Jtemp(3,3) + 2.0d0*kaniunitvec(3)*kanis
+                  Jtemp(1,1) = Jtemp(1,1) + 2.0d0*kaniunitvec(1)
+                  Jtemp(2,2) = Jtemp(2,2) + 2.0d0*kaniunitvec(2)
+                  Jtemp(3,3) = Jtemp(3,3) + 2.0d0*kaniunitvec(3)
                end if
 
                Jtemp2 = matmul(  Jtemp, Rotmatj )
@@ -532,7 +549,7 @@ contains
          sumJxy = hmagvec(l1,2)
          do l2 = 1, naucell
             do i = 1, ncell
-               sumJxy = sumJxy + J0j(l1,i,l2,1,3)
+               sumJxy = sumJxy + J0j(l1,i,l2,1,3)*Si(l2)
             end do
          end do
          !In the ground state the following elements should be zero
@@ -575,6 +592,14 @@ contains
                Dk(l1,l2,:,:) = Dk(l1,l2,:,:) + exp(  ii*dot_product(k,r0j(j,:))  ) * D0j(l1,j,l2,:,:)
             end do
          end do; end do
+
+         if( printD .and. ikptn == 1) then
+            print *, "Printing the dynamical matrix for the 1st k point. Only work for two atoms in the unit cell."
+            print "(2f18.10,a,2f18.10)", real(Dk(1,1,1,1)), real(Dk(1,1,1,2))," |", real(Dk(1,2,1,1)), real(Dk(1,2,1,2))
+            print "(2f18.10,a,2f18.10)", real(Dk(1,1,2,1)), real(Dk(1,1,2,2))," |", real(Dk(1,2,2,1)), real(Dk(1,2,2,2))
+            print "(2f18.10,a,2f18.10)", real(Dk(2,1,1,1)), real(Dk(2,1,1,2))," |", real(Dk(2,2,1,1)), real(Dk(2,2,1,2))
+            print "(2f18.10,a,2f18.10)", real(Dk(2,1,2,1)), real(Dk(2,1,2,2))," |", real(Dk(2,2,2,1)), real(Dk(2,2,2,2))
+         end if
 
          !Expanding Dk matrix (4 dim.) to a 2 dim. matrix.
          do i = 1, 2; do j = 1, 2
@@ -623,6 +648,9 @@ contains
          write( unit=*, fmt=formt) real(highsymm(i,1)),  ( real(highsymm(i,naucell+1-j)), j=0, naucellaux)  
       end do
 
+      open(unit=456,file="highsympoints.gnu")
+      write(formt,fmt="(a,a,a,i0,a)") "('set xtics (", '""' ,"  0.0',", npath, "(a,f12.8),')')"
+      write( unit=456, fmt=formt) (', ""', real(highsymm(i,1)), i=1, npath)  
 
       print *
       print *, "Input parameters:"
@@ -1045,7 +1073,7 @@ contains
          end do; end do  !alpha, beta
          gamma_scat = gamma_scat * 2.d0*pi!/dble(naucell)
 
-         spectra(p,:) = [ omega, ( real(gamma_scat(polariz,1,1)), real(gamma_scat(polariz,1,2)), real(gamma_scat(polariz,2,2)), real(gamma_scat(polariz,2,1)), polariz = 1, 3 ) ]
+         spectra(p,:) = [ omega, ( abs(gamma_scat(polariz,1,1)), abs(gamma_scat(polariz,1,2)), abs(gamma_scat(polariz,2,2)), abs(gamma_scat(polariz,2,1)), polariz = 1, 3 ) ]
       end do !p, Number of points in the y direction
 
 
