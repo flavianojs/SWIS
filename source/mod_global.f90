@@ -47,7 +47,8 @@ module mod_global
    integer :: ninteraction_pairs, ncell !Number of unit cells
    integer :: origcell !The index of the origin cell
    complex(kind=pc), allocatable :: highsymm(:,:), Rotpm(:,:,:), g(:,:)
-   real(kind=pc) :: beg_cpu_time, positions(1000,3), DJvect(1000,4)
+   real(kind=pc) :: beg_cpu_time, positions(10000,3), DJvect(10000,4)
+   integer :: ijda_db_dc(10000,5)
    logical :: maxomegaOK
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -119,16 +120,19 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine initialization()
       implicit none
+      real(kind=pc), parameter :: c0(3) = [0.123456789, 0.123456789, 0.123456789]
+
       integer :: i, dim, counter, reading_status, d1, d2, d3, l1, l2
-      real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization(3), Sx, Sy, Sz, c1(3), c2(3), c3(3), c0(3)
+      real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization(3), Sx, Sy, Sz
+      real(kind=pc) :: c1(3)=c0, c2(3)=c0, c3(3)=c0
       complex(kind=pc) :: HP(3,3), HPinv(3,3), aux(3,3)
       character(len=1000) :: read_in_data
       logical :: badindexing
 
-      c0 = [0.123456789, 0.123456789, 0.123456789]
-      c1 = c0
-      c2 = c0
-      c3 = c0
+      ! c0 = [0.123456789, 0.123456789, 0.123456789]
+      ! c1 = c0
+      ! c2 = c0
+      ! c3 = c0
 
       ! A list to be read on the input file: inputcardsky.f90
       namelist /input/ dims, npt, nptomega, naucell, ncellpdim, npath, latcons, a1, a2, a3, Jnn, J_D_scaling, Dnn, kanis, hm0, muB, hmagunitvec, kaniunitvec, mu_s, gamma, nndist, maxomega, minomega, eta, ncpdim, spirit, toprint, printD, unfolding, analytics, calc_occup, mode, polarization1, polarization2, polarization3, spin_dyn, c1, c2, c3
@@ -200,9 +204,15 @@ contains
 
       !Reading in the spin configuration
       open(unit=90, file=basisname, status="old")
-      !Check for commented line
-      read(unit=90, fmt="(a)") read_in_data
-      if( read_in_data(1:1) .NE. "#" ) rewind(90)
+
+      !Skipping comment lines
+      do 
+         read(unit=90, fmt="(a)") read_in_data
+         if( read_in_data(1:1) .NE. "#" ) then
+            backspace(90)
+            exit
+         end if
+      end do
 
       if(.not.spirit) then
          do counter=1, naucell
@@ -219,8 +229,8 @@ contains
             read(unit=90, fmt=*) Sx, Sy, Sz
 
             Sx = Sx * (mu_s/gamma)
-            Sy = Sy * (mu_s/gamma) + hm0/(2*(kanis+20))
-            Sz = Sz * (mu_s/gamma) * cos( asin( hm0/(2*(kanis+20)) ) )
+            Sy = Sy * (mu_s/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
+            Sz = Sz * (mu_s/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
             Si(i) = norm2([Sx, Sy, Sz])
             anglestheta(i) = acos( Sz/Si(i))
 
@@ -247,8 +257,8 @@ contains
 
          !This factor of 2 is to ajust difference between this hamiltonian here and the spirit code
          if( J_D_scaling == 0.123456789d0 ) J_D_scaling = 2.d0
-         print "(a,f7.3,a,f7.3,a)", "J and D are being rescalled by 'J_D_scaling/(mu_s**2)'=", J_D_scaling, "/", mu_s**2, "."
-         print *, "When 'Spirit mode' is on, if not given, 'J_D_scaling' is automatically set to 2, to ajust differnce between the inner hamiltonian and the 'spirit code' one."
+         print "(a,f7.3,a,f7.3,a)", " J and D are being rescalled by 'J_D_scaling/(mu_s**2)'=", J_D_scaling, "/", mu_s**2, "."
+         print *, "When 'Spirit mode' is on, if not given, 'J_D_scaling' is automatically set to 2 ajusting the differnce between the inner hamiltonian and the 'spirit code' one."
 
          counter = 0
          badindexing = .true.
@@ -264,17 +274,18 @@ contains
             if( l1 == 0 ) badindexing = .false.
 
             counter = counter + 1
-            if(counter>1000) stop "Sub initialization() error: There are more than 1000 entry on the 'pairfile'. 'mod_global' has to be modified."
+            if(counter>10000) stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
 
             if( norm2(c1-c0) < zero_toler .or. norm2(c2-c0) < zero_toler .or. norm2(c3-c0) < zero_toler ) then
-               if( counter == 1 ) print "(a/,a)", "Basis index MUST start in 0 in the interactions file 'pairXX.txt'.", "Set of c1, c2, c3 NOT given." 
+               if( counter == 1 ) print "(a/,a)", " Basis index MUST start in 0 in the interactions file 'pairXX.txt'.", " Set of c1, c2, c3 NOT given." 
                positions(counter,:) = ( basis(l2+1,:) - basis(l1+1,:) ) + (d1*a1 + d2*a2 + d3*a3) / latcons
+               ijda_db_dc(counter,:) = [ l1, l2, d1, d2, d3 ]
             else
                if( counter == 1 ) print *, "Set of c1, c2, c3 GIVEN"
                positions(counter,:) = d1*c1 + d2*c2 + d3*c3
             end if
-            if( counter == 1 )print *, "Interactions pair positions"
-            print "(3(f12.8))",  positions(counter,:)
+            if( counter == 1 ) print *, "Interactions pair positions"
+            if( counter <= 10 ) print "(3(f12.8))",  positions(counter,:)
 
             DJvect(counter,:) = [Dx, Dy, Dz, Jnn] * J_D_scaling * gamma**2/(mu_s**2)
          end do
@@ -298,7 +309,6 @@ contains
       do i = 1, naucell
          Rotmat(i,:,:) = rotationmatrix( anglesphi(i), anglestheta(i) )
       end do
-
       !Matrix of xyz --> +-z transformation (S+,S-,Sz) = HP (Sx,Sy,Sz)
       HP(1,:) = [ cone ,  ii  , czero ]
       HP(2,:) = [ cone , -ii  , czero ]
@@ -357,7 +367,7 @@ contains
       integer :: i, j, counter
       real(kind=pc) :: k(3), prevk(3), pathelement(3), totalpathlength
 
-      open(unit=333, file="kpath.dat")
+      open(unit=333, file="outputfiles/kpath.dat")
 
       allocate( symmpts(npath+1,3), nkpt_npath(npath) )
 
@@ -483,6 +493,9 @@ contains
                      ! end if
 
                      if( norm2( r0jaux-positions(i,:) ) < zero_toler ) then
+                        ! print *, 'Rij  ', r0jaux,
+                        ! print *, 'i  j ',ijda_db_dc(i, 1), ijda_db_dc(i, 1)
+                        ! print *, 'l1 l1', l1, l2
                         nnn=nnn+1
                         ! print *, "l1, l2, i", l1, l2, i;
                         ! print*, 'abs', sum(abs( r0jaux-positions(i,:) ))
@@ -648,7 +661,7 @@ contains
          write( unit=*, fmt=formt) real(highsymm(i,1)),  ( real(highsymm(i,naucell+1-j)), j=0, naucellaux)  
       end do
 
-      open(unit=456,file="highsympoints.gnu")
+      open(unit=456,file="outputfiles/highsympoints.gnu")
       write(formt,fmt="(a,a,a,i0,a)") "('set xtics (", '""' ,"  0.0',", npath, "(a,f12.8),')')"
       write( unit=456, fmt=formt) (', ""', real(highsymm(i,1)), i=1, npath)  
 
@@ -888,8 +901,8 @@ contains
 
          sumall = sumall + occupation
          do kk=-dims(1),dims(1); do pp=-dims(2),dims(2)
-            write(unit=99,fmt= "(6f20.12)"), basis(j,:)+(a1*kk+a2*pp), occupation, real_occupation, imag_occupation
-            write(unit=1001,fmt= "(6f20.12)"), basis(j,:)+(a1*kk+a2*pp), atan2(imag_occupation, real_occupation ), 1.57079632679490, 1.d0
+            write(unit=99,fmt= "(6f20.12)") basis(j,:)+(a1*kk+a2*pp), occupation, real_occupation, imag_occupation
+            write(unit=1001,fmt= "(6f20.12)") basis(j,:)+(a1*kk+a2*pp), atan2(imag_occupation, real_occupation ), 1.57079632679490, 1.d0
          end do; end do
       end do
       print *, "Magnon occupation number calculations of mode: ", mode
@@ -942,8 +955,8 @@ contains
    end subroutine getriddegeneracy
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!$ subroutine subunfolding(i,eigenvalues,eigenvector,spectra,lck)
    ! subroutine subunfolding(i,eigenvalues,eigenvector,spectra)
+!$ subroutine subunfolding(i,eigenvalues,eigenvector,spectra,lck)
 !$    use omp_lib
       implicit none
       integer, intent(in) :: i
@@ -1099,7 +1112,7 @@ contains
 
 
 
-      write(unit=987, fmt="(a,i3,a,3f16.8)") "idx ", kpointindex, " K=", k
+      ! write(unit=987, fmt="(a,i3,a,3f16.8)") "idx ", kpointindex, " K=", k
       do r = 1, naucell
          expected_valueS(kpointindex,r,:) = 0.d0
          do mu = 1, naucell
@@ -1119,13 +1132,13 @@ contains
 
             expected_valueS(kpointindex,r,:) = expected_valueS(kpointindex,r,:) + diff
          end do
-         write(unit=987, fmt="(a,i3,a,3f16.8,a,1f8.4,a,2f16.8)") "   r=", r, " <S_r>", expected_valueS(kpointindex,r,:), "  |<S_r>|", norm2(expected_valueS(kpointindex,r,:)) , "      E_r= ", eigenvalues(r) 
-         if( r==naucell-0 ) write(unit=981, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
-         if( r==naucell-1 ) write(unit=982, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
-         if( r==naucell-2 ) write(unit=983, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
-         if( r==naucell-3 ) write(unit=984, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
+         ! write(unit=987, fmt="(a,i3,a,3f16.8,a,1f8.4,a,2f16.8)") "   r=", r, " <S_r>", expected_valueS(kpointindex,r,:), "  |<S_r>|", norm2(expected_valueS(kpointindex,r,:)) , "      E_r= ", eigenvalues(r) 
+         ! if( r==naucell-0 ) write(unit=981, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
+         ! if( r==naucell-1 ) write(unit=982, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
+         ! if( r==naucell-2 ) write(unit=983, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
+         ! if( r==naucell-3 ) write(unit=984, fmt="(i3,3f16.8)") kpointindex, expected_valueS(kpointindex,r,:)
       end do
-      write(unit=985, fmt="(i3,100f16.8)") kpointindex, ( norm2(expected_valueS(kpointindex,r,:)), r=1, naucell )
+      ! write(unit=985, fmt="(i3,100f16.8)") kpointindex, ( norm2(expected_valueS(kpointindex,r,:)), r=1, naucell )
 
    end subroutine unfoldingnoncol
 

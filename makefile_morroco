@@ -71,17 +71,19 @@ endif
 ####################################################
 #  Compiler                                        #
 ####################################################
-FC = ifort
+FC = gfortran
 
 ####################################################
 #  Libraries                                       #
 ####################################################
-LLIBS =-mkl
+LLIBS  = -fopenmp -ffree-line-length-1000 -L/usr/lib -llapack -L/usr/lib -lblas
+FFLAGS = -fopenmp -ffree-line-length-1000 -L/usr/lib -llapack -L/usr/lib -lblas
 
 ####################################################
 #  Flags                                           #
 ####################################################
-FFLAGS =-O3 -xHost -heap-arrays
+# FFLAGS = 
+# FFLAGS =-O3 -xHost
 # FFLAGS =
 # FFLAGS =-mcmodel=medium
 
@@ -101,33 +103,20 @@ endif
 ####################################################
 #  Module and Include folder                       #
 ####################################################
-FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
+# FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
 
 ####################################################
 #  Parallelization                                 #
 ####################################################
 # ifeq ($(PARALLEL),omp)
-LLIBS +=-qopenmp
-FFLAGS +=-qopenmp
+# LLIBS +=-fopenmp
+# FFLAGS +=-fopenmp
 # endif
 
 #=======================================================================
 #========================== LOCATION SPECIFIC ==========================
 #=======================================================================
 
-####################################################
-#                       Ubuntu                     #
-####################################################
-ifeq ($(PLATFORM),ubu)
-# Compiler
-FC = gfortran
-# Preprocessor
-CPP = 
-# Libraries
-LLIBS = -fopenmp -ffree-line-length-1000 -L/usr/lib -llapack -L/usr/lib -lblas
-#Flags
-FFLAGS =-fopenmp -ffree-line-length-1000 -L/usr/lib -llapack -L/usr/lib -lblas
-endif
 ####################################################
 #                       UFF                        #
 ####################################################
@@ -149,6 +138,30 @@ FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
 ifeq ($(PARALLEL),omp)
 LLIBS +=-openmp
 FFLAGS +=-openmp
+endif
+endif
+####################################################
+#                    Ubuntu                        #
+####################################################
+ifeq ($(PLATFORM),ubu)
+# Compiler
+FC = gfortran
+# Preprocessor
+# CPP = -fpp
+# Libraries
+LLIBS = -L/usr/lib -llapack  #-L/usr/lib -lblas
+#Flags
+FFLAGS = -ffree-line-length-1000 -fopenmp
+# FFLAGS =-O3 -xHost -qoverride-limits #-guide -parallel # -vec-threshold0
+#Debugger
+ifeq ($(DEBUG),debug)
+FFLAGS =-CB -check all -check uninit -ftrapuv -debug all -traceback -g -warn all -O0
+endif
+# FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
+# Parallelization
+ifeq ($(PARALLEL),omp)
+LLIBS +=-fopenmp
+FFLAGS +=-fopenmp
 endif
 endif
 ####################################################

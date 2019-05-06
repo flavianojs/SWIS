@@ -28,7 +28,6 @@ program dispersion
 
    !Initializations: Reads inputcard and initializes variables and secondary parameters
    call initialization()
-
    allocate( Dmatrix(effnkpt,twonaucell,twonaucell) )
    ! allocate( evalues(twonaucell), evaluesTOT(effnkpt,twonaucell), halfevalues(naucell), leftevector(twonaucell,twonaucell), rightevector(twonaucell, twonaucell), rightevectorTOT(effnkpt, twonaucell, twonaucell), halfevector(naucell, naucell), evectorUnfol(2,2,naucell,naucell), work(2*twonaucell), rwork(2*twonaucell), rwork2(twonaucell), spectra(effnkpt,nptomega,5), disp_matrix(effnkpt,naucell) )
    ! allocate( diagonal(twonaucell,twonaucell), nodiagonal(twonaucell,twonaucell), bwork(twonaucell) )

@@ -44,7 +44,7 @@ subroutine bogoliubov_transf(kpointindex,hamiltonian,evalues,leftevector,rightev
       diagonal = trimatmul(rightevector , g, trp_cjg(rightevector))
       call printmatrix("R.g.R+",  real(diagonal), format)
 
-      pause
+      ! pause
       return
    end if
 
