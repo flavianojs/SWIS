@@ -12,20 +12,21 @@ module mod_global
 
    !!!!!!!!!!!!!!!!! Simulation control board (Parameters) !!!!!!!!!!!!!
    character(len=100) :: inputcardname
-   character(len=100) :: basisname, pairfile, latticefile
+   character(len=100) :: basisname, latticefile
    integer :: dims(3) !Determines the dimension of the problem. Shall be filled by 1 or 0
-   integer :: npt, naucell, ncellpdim, npath, ncpdim ! n. of k-point in the disperion; n. of atom in the unit cell; number of real space unit cell for the Fourier transformation
+   integer :: n_basis_cells(3) = [1.d0,1.d0,1.d0] !To expand the unit cell to form the simulation box
+   integer :: npt, naucell, ncellpdim=2, npath, ncpdim ! n. of k-point in the disperion; n. of atom in the unit cell; number of real space unit cell for the Fourier transformation
    integer :: twonaucell, effnkpt, nptomega=0
    integer, allocatable :: nkpt_npath(:)
    real(kind=pc) :: latcons
-   real(kind=pc) :: a1(3), b1(3)
-   real(kind=pc) :: a2(3), b2(3)
-   real(kind=pc) :: a3(3), b3(3)
+   real(kind=pc) :: a1(3), big_a1(3), b1(3)
+   real(kind=pc) :: a2(3), big_a2(3), b2(3)
+   real(kind=pc) :: a3(3), big_a3(3), b3(3)
    real(kind=pc) :: polarization1(2) = [0.d0,0.d0], polarization2(2) = [0.d0,0.d0], polarization3(2) = [0.d0,0.d0]
 
    !The Interactions
-   real(kind=pc) :: Jnn=0.0d0, Dnn=0.d0, kanis=0.d0, hm0=0.d0, muB=1.d0
-   real(kind=pc) :: hmagunitvec(3), kaniunitvec(3) = [0.d0, 0.d0, 1.d0], J_D_scaling=0.123456789d0
+   real(kind=pc) :: Jnn=0.0d0, Dnn=0.d0, kanis=0.d0, kanis2=0.d0, hm0=0.d0, muB=1.d0, interactions_cutoff_radius = 1.d6
+   real(kind=pc) :: hmagunitvec(3), kaniunitvec(3) = [0.d0, 0.d0, 1.d0], kaniunitvec2(3) = [0.d0, 0.d0, 1.d0], J_D_scaling=0.123456789d0
    real(kind=pc) :: mu_s=1.d0, gamma=1.d0 ! mag mom equals to gamma times the spin operator: mu_s = gamma * S
 
    !Calculations to be performed
@@ -48,7 +49,7 @@ module mod_global
    integer :: origcell !The index of the origin cell
    complex(kind=pc), allocatable :: highsymm(:,:), Rotpm(:,:,:), g(:,:)
    real(kind=pc) :: beg_cpu_time, positions(10000,3), DJvect(10000,4)
-   integer :: ijda_db_dc(10000,5)
+   ! integer :: ijda_db_dc(10000,5)
    logical :: maxomegaOK
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -122,12 +123,15 @@ contains
       implicit none
       real(kind=pc), parameter :: c0(3) = [0.123456789, 0.123456789, 0.123456789]
 
-      integer :: i, dim, counter, reading_status, d1, d2, d3, l1, l2
-      real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization(3), Sx, Sy, Sz
+      integer :: i,j,k, dim, counter, reading_status, d1, d2, d3, l1, l2, ierr, num_atoms_small_basis
+      real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization(3), Sx, Sy, Sz, pos_norm, big_a1_norm, big_a2_norm, big_a3_norm
+      real(kind=pc), allocatable :: unit_cell_basis(:,:)
       real(kind=pc) :: c1(3)=c0, c2(3)=c0, c3(3)=c0
       complex(kind=pc) :: HP(3,3), HPinv(3,3), aux(3,3)
-      character(len=1000) :: read_in_data
-      logical :: badindexing
+      character(len=1000) :: read_in_data, lines, spirit_input = "", pairfile
+      character(len=100) :: word
+      logical :: badindexing, flag1
+      logical :: spirit_input_given = .false., c1c2c3set_given = .false.
 
       ! c0 = [0.123456789, 0.123456789, 0.123456789]
       ! c1 = c0
@@ -135,7 +139,7 @@ contains
       ! c3 = c0
 
       ! A list to be read on the input file: inputcardsky.f90
-      namelist /input/ dims, npt, nptomega, naucell, ncellpdim, npath, latcons, a1, a2, a3, Jnn, J_D_scaling, Dnn, kanis, hm0, muB, hmagunitvec, kaniunitvec, mu_s, gamma, nndist, maxomega, minomega, eta, ncpdim, spirit, toprint, printD, unfolding, analytics, calc_occup, mode, polarization1, polarization2, polarization3, spin_dyn, c1, c2, c3
+      namelist /input/ dims, npt, nptomega, naucell, ncellpdim, npath, latcons, a1, a2, a3, Jnn, J_D_scaling, Dnn, kanis, kanis2, hm0, muB, hmagunitvec, kaniunitvec, kaniunitvec2, mu_s, gamma, nndist, maxomega, minomega, eta, ncpdim, spirit, spirit_input, toprint, printD, unfolding, analytics, calc_occup, mode, polarization1, polarization2, polarization3, spin_dyn, c1, c2, c3, interactions_cutoff_radius
       namelist /input2/ Uweight, syptsMataux, basisname, pairfile, latticefile
          
       ! Reading the inputs and allocating variables   
@@ -143,12 +147,72 @@ contains
       read(101, nml=input)
       !write(*,nml=input)
 
+      if( spirit_input .ne. "" ) then
+         spirit_input_given = .true.
+         print *
+         print "(2a)", "Reading SPIRIT inputcard: ", trim(spirit_input)
+         open(unit=102, file=spirit_input)
+
+         flag1 = .false.
+         num_atoms_small_basis = -1
+         counter = -1
+         do 
+            read(unit=102, fmt="(a)", iostat=ierr ) lines
+            if(ierr /= 0) exit
+            if(lines == "" ) cycle
+
+            read(lines, *) word
+
+            !______________________________________________________
+            if( word == "n_basis_cells") then
+               read(lines, *) word, n_basis_cells
+               naucell = n_basis_cells(1)*n_basis_cells(2)*n_basis_cells(3)
+               print "(a,3i4)", "n_basis_cells ", n_basis_cells
+               print "(a,3i4)", "naucell ", naucell
+            end if
+            !-------------------------------------------------------
+
+            !______________________________________________________
+            if( 0 < counter .and. counter <= num_atoms_small_basis ) then
+               read(lines, *) basisaux
+               unit_cell_basis(counter,:) = basisaux
+               print "(3f12.8)", basisaux 
+               counter = counter + 1
+            end if
+
+            if( flag1 ) then
+               read(lines, *) num_atoms_small_basis
+               print "(a)", "basis"  
+               print "(i0)", num_atoms_small_basis  
+               allocate( unit_cell_basis(num_atoms_small_basis,3) )
+               flag1 = .false.
+               counter = 1
+            end if
+
+            if( word == "basis") flag1 = .true.
+            !-------------------------------------------------------
+
+         end do
+         print "(a)", "END Reading SPIRIT inputcard."
+         print *
+      end if
+
       twonaucell = 2*naucell
-      allocate( syptsMat(npath+1,3), syptsMataux(3,npath+1), g(twonaucell,twonaucell), Uweight(naucell) )
+      allocate( syptsMataux(3,51), g(twonaucell,twonaucell), Uweight(naucell) )
 
       Uweight = 1.d0 !Default value
+      syptsMataux = 0.123456789d0
 
       read(101, nml=input2)
+
+      do i = 1, 51
+         if( syptsMataux(1,i) == 0.123456789d0 ) then 
+            npath = i - 2
+            print "(a,i0)", "Attributing 'npath' = ", npath
+            exit
+         end if
+      end do
+      allocate( syptsMat(npath+1,3) )
 
       if(nndist==0.d0) then
          print *, "No n.n distance inputted! Setting it to its default value: nndist=latcons"
@@ -162,31 +226,34 @@ contains
          g(i+naucell,i+naucell) = -1.d0
       end do
 
-      syptsMat = transpose(syptsMataux)
+      syptsMat = transpose(syptsMataux(:,1:npath+1))
 
       !make sure we have a unitarian vector
       kaniunitvec = kaniunitvec / norm2(kaniunitvec)
       kaniunitvec = kaniunitvec * kanis * gamma**2/(mu_s**2)
 
+      kaniunitvec2 = kaniunitvec2 / norm2(kaniunitvec2)
+      kaniunitvec2 = kaniunitvec2 * kanis2 * gamma**2/(mu_s**2)
+
       hmagunitvec = hmagunitvec / norm2(hmagunitvec)
       hmag(:) = hmagunitvec * (muB * hm0) * gamma
 
       Jx=Jnn; Jy=Jnn; Jz=Jnn
-      a1=a1*latcons
-      a2=a2*latcons
-      a3=a3*latcons
+      big_a1 = a1 * latcons * n_basis_cells(1)
+      big_a2 = a2 * latcons * n_basis_cells(2)
+      big_a3 = a3 * latcons * n_basis_cells(3)
+
+      big_a1_norm = norm2( big_a1 * (ncellpdim-1) )
+      big_a2_norm = norm2( big_a2 * (ncellpdim-1) )
+      big_a3_norm = norm2( big_a3 * (ncellpdim-1) )
 
       allocate( anglesphi(naucell), anglestheta(naucell), Si(naucell), basis(naucell,3), Rotmat(naucell,3,3), Rotpm(naucell,3,3), expected_valueS(npt,naucell,3) )
       
-      !This determines the position in real space of each unit cell
-      call crystallattice()
-      !end: This determines the position in real space of each unit cell
-
       !To calculate the k path where the dispersion will be calculated
       dim = sum(dims)
-      amat(1,:) = a1
-      amat(2,:) = a2
-      amat(3,:) = a3
+      amat(1,:) = a1 !/latcons*n_basis_cells(1)
+      amat(2,:) = a2 !/latcons*n_basis_cells(2)
+      amat(3,:) = a3 !/latcons*n_basis_cells(3)
       bmat = 0.d0 !This is important to initialize the part of the bmat matrix that wont be initialized on the next line
       bmat(1:dim,1:dim) = 2.d0*pi* transpose(inv(amat(1:dim,1:dim)))
 
@@ -241,16 +308,29 @@ contains
             end if
          end do
 
-         !Reading the atom positions. In the 'spirit' mode, the atom positions are read from a separate file
-         open(unit=91, file=latticefile)
-         !Check for commented line
-         read(unit=91, fmt="(a)") read_in_data
-         if( read_in_data(1:1) .NE. "#" ) rewind(91)
+         if( spirit_input_given ) then
+            counter = 0
+            do k = 1, n_basis_cells(3)
+               do j = 1, n_basis_cells(2)
+                  do i = 1, n_basis_cells(1)
+                     counter = counter + 1
+                     basis(counter,:) = (i*a1 + j*a2 + k*a3)
+                  end do 
+               end do
+            end do
+            print *, "Position of each spin in the simulation box computed."
+         else 
+            !Reading the atom positions. In the 'spirit' mode, the atom positions are read from a separate file
+            open(unit=91, file=latticefile)
+            !Check for commented line
+            read(unit=91, fmt="(a)") read_in_data
+            if( read_in_data(1:1) .NE. "#" ) rewind(91)
 
-         do i = 1, naucell 
-            read(unit=91, fmt=*) basisaux
-            basis(i,:) = basisaux
-         end do
+            do i = 1, naucell 
+               read(unit=91, fmt=*) basisaux
+               basis(i,:) = basisaux
+            end do
+         end if
 
          !Reading the interaction pairs
          open(unit=92, file=pairfile, status="old")
@@ -260,14 +340,32 @@ contains
          print "(a,f7.3,a,f7.3,a)", " J and D are being rescalled by 'J_D_scaling/(mu_s**2)'=", J_D_scaling, "/", mu_s**2, "."
          print *, "When 'Spirit mode' is on, if not given, 'J_D_scaling' is automatically set to 2 ajusting the differnce between the inner hamiltonian and the 'spirit code' one."
 
+         if( abs(interactions_cutoff_radius - 1.d6) > zero_toler ) print *, "Interaction cuf-off: ", interactions_cutoff_radius
+
+         if( spirit_input_given ) then
+            print *, "Interactions pair positions will be calculated from d1*a1, d2*a2, d3*a3."
+         else
+            if( norm2(c1-c0) < zero_toler .or. norm2(c2-c0) < zero_toler .or. norm2(c3-c0) < zero_toler ) then
+               print "(a/,a)", " Basis index MUST start in 0 in the interactions file 'pairXX.txt'.", " Set of c1, c2, c3 NOT given." 
+               c1c2c3set_given = .false.
+            else
+               print *, "Set of c1, c2, c3 GIVEN"
+               c1c2c3set_given = .true.
+            end if
+         end if
+
          counter = 0
          badindexing = .true.
          do 
             read(unit=92, fmt="(a)", iostat=reading_status) read_in_data
             if( reading_status < 0 ) exit
             if( reading_status > 0 ) stop "Sub initialization() error: On reading interaction pair file 'pairfile'. Stopping."
-            if( read_in_data(1:1) == "#" .or. read_in_data(1:1) == "i" ) cycle
+            
+            read( read_in_data, *) word
+            if( read_in_data(1:1) == "#" .or. trim(word) == "i" ) cycle
+
             read( read_in_data, fmt=* , iostat=reading_status) l1, l2, d1, d2, d3, Dx, Dy, Dz, Jnn
+
             if( reading_status .ne. 0 ) cycle
             ! if( reading_status .ne. 0 ) stop "Sub initialization() error: On reading interaction pair file 'pairfile'. Stopping."
 
@@ -276,20 +374,40 @@ contains
             counter = counter + 1
             if(counter>10000) stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
 
-            if( norm2(c1-c0) < zero_toler .or. norm2(c2-c0) < zero_toler .or. norm2(c3-c0) < zero_toler ) then
-               if( counter == 1 ) print "(a/,a)", " Basis index MUST start in 0 in the interactions file 'pairXX.txt'.", " Set of c1, c2, c3 NOT given." 
-               positions(counter,:) = ( basis(l2+1,:) - basis(l1+1,:) ) + (d1*a1 + d2*a2 + d3*a3) / latcons
-               ijda_db_dc(counter,:) = [ l1, l2, d1, d2, d3 ]
+            if( spirit_input_given ) then
+               positions(counter,:) = d1*a1 + d2*a2 + d3*a3
             else
-               if( counter == 1 ) print *, "Set of c1, c2, c3 GIVEN"
-               positions(counter,:) = d1*c1 + d2*c2 + d3*c3
+               if( c1c2c3set_given ) then
+                  positions(counter,:) = d1*c1 + d2*c2 + d3*c3
+               else
+                  positions(counter,:) = ( basis(l2+1,:) - basis(l1+1,:) ) + ( d1*big_a1 + d2*big_a2 + d3*big_a3 ) ! / latcons
+                  ! ijda_db_dc(counter,:) = [ l1, l2, d1, d2, d3 ]
+               end if
             end if
+
+            pos_norm = norm2(positions(counter,:))
+
+            do
+               if( ((pos_norm+1                 > big_a1_norm) .or. (pos_norm+1                 > big_a2_norm)) .and. &
+                   ((interactions_cutoff_radius > big_a1_norm) .or. (interactions_cutoff_radius > big_a2_norm)) ) then
+                   ! stop "Cluster of interaction larger than simulation box. Please increase 'ncellpdim' in the inputcard_XX.inp. Stopping."
+                  ncellpdim = ncellpdim+1
+                  big_a1_norm = norm2( big_a1 * (ncellpdim-1) )
+                  big_a2_norm = norm2( big_a2 * (ncellpdim-1) )
+                  big_a3_norm = norm2( big_a3 * (ncellpdim-1) )
+               else
+                  exit
+               end if
+            end do
+
             if( counter == 1 ) print *, "Interactions pair positions"
             if( counter <= 10 ) print "(3(f12.8))",  positions(counter,:)
 
             DJvect(counter,:) = [Dx, Dy, Dz, Jnn] * J_D_scaling * gamma**2/(mu_s**2)
          end do
          close(unit=92)
+
+         print *, "ncellpdim = ", ncellpdim
 
          if( badindexing ) stop "Most probably your indexing is wrong in the interaction file. Basis atom index should start at zero. Stopping."
 
@@ -299,11 +417,20 @@ contains
       end if !in not spirit
       !end: Reading in the spin configuration
 
+      !This determines the position in real space of each unit cell
+      call crystallattice()
+      !end: This determines the position in real space of each unit cell
+
       net_magnetization = 0.d0
       do i = 1, naucell
          net_magnetization = net_magnetization + [ cos(anglesphi(i))*sin(anglestheta(i))*Si(i), sin(anglesphi(i))*sin(anglestheta(i))*Si(i), cos(anglestheta(i))*Si(i) ]
       end do
-      print "(a,3F22.16)", "Net magnetization / per site=", net_magnetization/naucell
+      net_magnetization = net_magnetization/naucell
+      if( mu_s .ne. 1.d0 .and. gamma .eq. 2.d0) then
+         print "(a,3F22.16)", "Net magnetization / per site=", (net_magnetization)/norm2(net_magnetization)
+      else
+         print "(a,3F22.16)", "Net magnetization / per site=", net_magnetization
+      end if
       
       !Computing rotation matrixes
       do i = 1, naucell
@@ -339,7 +466,7 @@ contains
 
       ncell = 0
       r0jaux = 0.d0
-      r0 = 0*a1 + 0*a2 + 0*a3
+      r0 = 0*big_a1 + 0*big_a2 + 0*big_a3
       !The lattice can be 1, 2 or 3 dimensional depending on the inputted array "dims"
       do i = -ncellpdim*dims(1), ncellpdim*dims(1)
       do j = -ncellpdim*dims(2), ncellpdim*dims(2)
@@ -349,7 +476,7 @@ contains
             origcell = ncell
             r0jaux(ncell,:) = r0
          else
-            rj = i*a1 + j*a2 + k*a3
+            rj = i*big_a1 + j*big_a2 + k*big_a3
             r0jaux(ncell,:) = rj-r0
          end if
          ! print *, "i, j, k, ncell", i, j, k, ncell
@@ -483,38 +610,34 @@ contains
 
                Jtemp = 0.d0
                if(spirit) then
-                  do i = 1, ninteraction_pairs
-                     ! if (l1 == 1 .and. l2 == 11 ) then
-                     !    print *, "atom i", l1, "atom j", l2, "cell", j, "interaction", i
-                     !    print "(a,3f12.8)", "basis i",  basis(l1,:) 
-                     !    print "(a,3f12.8)", "basis j",  basis(l2,:) 
-                     !    print "(2(a,3f12.8))", "r0jaux ", r0jaux, " positions ", positions(i,:)
-                     !    pause
-                     ! end if
+                  if(norm_r0j <= interactions_cutoff_radius) then
+                     do i = 1, ninteraction_pairs
+                        ! if (l1 == 1 .and. l2 == 11 .or. .true. ) then
+                        !    print *, "atom i", l1, "atom j", l2, "cell", j, "interaction", i
+                        !    print "(a,3f7.3)", "basis i",  basis(l1,:) 
+                        !    print "(a,3f7.3)", "basis j",  basis(l2,:) 
+                        !    print "(a,3f7.3)", "cell position",  r0j(j,:) 
+                        !    print "(2(a,3f7.3))", "r0jaux ", r0jaux, " positions ", positions(i,:)
+                        !    pause
+                        ! end if
 
-                     if( norm2( r0jaux-positions(i,:) ) < zero_toler ) then
-                        ! print *, 'Rij  ', r0jaux,
-                        ! print *, 'i  j ',ijda_db_dc(i, 1), ijda_db_dc(i, 1)
-                        ! print *, 'l1 l1', l1, l2
-                        nnn=nnn+1
-                        ! print *, "l1, l2, i", l1, l2, i;
-                        ! print*, 'abs', sum(abs( r0jaux-positions(i,:) ))
-                        ! print*, 'r-p', r0jaux-positions(i,:) 
-                        ! print*, 'r0jaux', r0jaux
-                        ! print*, 'pos(i,', positions(i,:); pause
-                        Dx = DJvect(i,1)
-                        Dy = DJvect(i,2)
-                        Dz = DJvect(i,3)
-                        Jx = DJvect(i,4)
-                        Jy = DJvect(i,4)
-                        Jz = DJvect(i,4)
+                        if( norm2( r0jaux-positions(i,:) ) < zero_toler ) then
+                           nnn=nnn+1
 
-                        Jtemp(1,:) = [ Jx, Dz,-Dy ]
-                        Jtemp(2,:) = [-Dz, Jy, Dx ]
-                        Jtemp(3,:) = [ Dy,-Dx, Jz ]
-                        exit
-                     end if
-                  end do
+                           Dx = DJvect(i,1)
+                           Dy = DJvect(i,2)
+                           Dz = DJvect(i,3)
+                           Jx = DJvect(i,4)
+                           Jy = DJvect(i,4)
+                           Jz = DJvect(i,4)
+
+                           Jtemp(1,:) = [ Jx, Dz,-Dy ]
+                           Jtemp(2,:) = [-Dz, Jy, Dx ]
+                           Jtemp(3,:) = [ Dy,-Dx, Jz ]
+                           exit
+                        end if
+                     end do
+                  end if
                        !Test to see if the current pair of atoms are at n.n distance
                elseif( abs(norm_r0j - nndist) < zero_toler .and. norm_r0j > zero_toler ) then 
                   nnn=nnn+1
@@ -531,9 +654,9 @@ contains
                end if !if spirit mode
 
                if(j==origcell .and. l1==l2) then
-                  Jtemp(1,1) = Jtemp(1,1) + 2.0d0*kaniunitvec(1)
-                  Jtemp(2,2) = Jtemp(2,2) + 2.0d0*kaniunitvec(2)
-                  Jtemp(3,3) = Jtemp(3,3) + 2.0d0*kaniunitvec(3)
+                  Jtemp(1,1) = Jtemp(1,1) + 2.0d0*(kaniunitvec(1) + kaniunitvec2(1))
+                  Jtemp(2,2) = Jtemp(2,2) + 2.0d0*(kaniunitvec(2) + kaniunitvec2(2))
+                  Jtemp(3,3) = Jtemp(3,3) + 2.0d0*(kaniunitvec(3) + kaniunitvec2(3))
                end if
 
                Jtemp2 = matmul(  Jtemp, Rotmatj )
@@ -714,7 +837,7 @@ contains
          ! anglesphi(j) = pi/2.d0
          ! anglestheta(j) = dot_product(k,r0j(i,:))
          
-         write(unit=666,fmt='(6f14.8)') a1*i + a2*m + basis(j,:), anglesphi(j), anglestheta(j), Si(j) 
+         write(unit=666,fmt='(6f14.8)') big_a1*i + big_a2*m + basis(j,:), anglesphi(j), anglestheta(j), Si(j) 
          
          ! k = r0j(i,:)
          ! write(unit=666,fmt='(6f14.8)') k + basis(j,:), anglesphi(j), anglestheta(j), Si(j)
@@ -901,8 +1024,8 @@ contains
 
          sumall = sumall + occupation
          do kk=-dims(1),dims(1); do pp=-dims(2),dims(2)
-            write(unit=99,fmt= "(6f20.12)") basis(j,:)+(a1*kk+a2*pp), occupation, real_occupation, imag_occupation
-            write(unit=1001,fmt= "(6f20.12)") basis(j,:)+(a1*kk+a2*pp), atan2(imag_occupation, real_occupation ), 1.57079632679490, 1.d0
+            write(unit=99,fmt= "(6f20.12)") basis(j,:)+(big_a1*kk+big_a2*pp), occupation, real_occupation, imag_occupation
+            write(unit=1001,fmt= "(6f20.12)") basis(j,:)+(big_a1*kk+big_a2*pp), atan2(imag_occupation, real_occupation ), 1.57079632679490, 1.d0
          end do; end do
       end do
       print *, "Magnon occupation number calculations of mode: ", mode
@@ -1075,7 +1198,7 @@ contains
                ! end if
 
                ! N_mu_nu = 2.d0 * sqrt( Si(mu) * Si(nu) ) * Rotpm(mu,alpha,1)*Rotpm(nu,beta,2) * N_mu_nu
-               N_mu_nu = 2.d0 * sqrt( Si(mu) * Si(nu) ) * N_mu_nu
+               N_mu_nu = 2.d0 * sqrt( Si(mu) * Si(nu) ) * N_mu_nu / naucell !I am trying to normalize the spectra intensity for any number of atoms in the unit cell
                N_alp_bet = N_alp_bet + exp( -ii*dot_product(k, diff) ) * Uweight(mu)*Uweight(nu) * N_mu_nu
             end do; end do !mu, nu
             do sii=1,2; do ssf=1,2
