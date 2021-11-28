@@ -15,7 +15,8 @@ program dispersion
    complex(kind=pc), allocatable :: work(:) !work space for the diagonalization routine.
    double precision, allocatable :: rwork(:), rwork2(:) !work space for the diagonalization routine.
    logical, allocatable :: bwork(:) !work space for the diagonalization routine.
-   real(kind=pc), allocatable :: spectra(:,:,:), disp_matrix(:,:)
+   real(kind=pc), allocatable :: spectra(:,:,:), spectra_aux(:,:), ine_intensities(:,:,:), ine_intensities_aux(:,:), disp_matrix(:,:)
+   complex(kind=pc), allocatable :: expected_valueS(:,:,:), expected_valueS_aux(:,:)
    character(len=70) :: formt
    complex(kind=pc) :: number
    logical :: SELECT
@@ -31,7 +32,7 @@ program dispersion
    allocate( Dmatrix(effnkpt,twonaucell,twonaucell) )
    ! allocate( evalues(twonaucell), evaluesTOT(effnkpt,twonaucell), halfevalues(naucell), leftevector(twonaucell,twonaucell), rightevector(twonaucell, twonaucell), rightevectorTOT(effnkpt, twonaucell, twonaucell), halfevector(naucell, naucell), evectorUnfol(2,2,naucell,naucell), work(2*twonaucell), rwork(2*twonaucell), rwork2(twonaucell), spectra(effnkpt,nptomega,5), disp_matrix(effnkpt,naucell) )
    ! allocate( diagonal(twonaucell,twonaucell), nodiagonal(twonaucell,twonaucell), bwork(twonaucell) )
-   allocate( rightevectorTOT(effnkpt, twonaucell, twonaucell), evaluesTOT(effnkpt,twonaucell) , spectra(effnkpt,nptomega,13), disp_matrix(effnkpt,naucell), highsymm(npath,naucell+1) )
+   allocate( rightevectorTOT(effnkpt, twonaucell, twonaucell), evaluesTOT(effnkpt,twonaucell), spectra(effnkpt,nptomega,13), spectra_aux(nptomega,13), ine_intensities(effnkpt,naucell,13), ine_intensities_aux(naucell,13), expected_valueS(effnkpt,naucell,3), expected_valueS_aux(naucell,3), disp_matrix(effnkpt,twonaucell), highsymm(npath,naucell+1) )
 
 !$ call omp_init_lock(lck)
    maxomegaOK = .false.
@@ -41,14 +42,15 @@ program dispersion
 
    !Loop over k points
 !$omp parallel default(none) &
-!$omp& private(mythread,i,k,nodiagonal,diagonal,evalues,leftevector,rightevector,work,rwork,rwork2,info,m,j,halfevalues,halfevector,evectorUnfol,formt,number,summation,bwork,SDIM) &
-!$omp& shared(nthreads,lck,effnkpt,kpoints,Dmatrix,twonaucell,naucell,calc_occup,mode,unfolding,maxomega,rescalf,eta,maxomegaOK,spectra,disp_matrix,rightevectorTOT,evaluesTOT,zero_toler,g,SELECT,nptomega)
+!$omp& private(mythread,i,k,nodiagonal,diagonal,evalues,leftevector,rightevector,work,rwork,rwork2,info,m,j,halfevalues,spectra_aux,ine_intensities_aux,expected_valueS_aux,halfevector,evectorUnfol,formt,number,summation,bwork,SDIM) &
+!$omp& shared(nthreads,lck,effnkpt,kpoints,Dmatrix,twonaucell,naucell,calc_occup,mode,unfolding,maxomega,rescalf,eta,maxomegaOK,spectra,ine_intensities,expected_valueS,disp_matrix,rightevectorTOT,evaluesTOT,zero_toler,g,SELECT,nptomega,Tneel)
 !$ mythread = omp_get_thread_num()
 !$ if(mythread.eq.0) then
 !$    nthreads = omp_get_num_threads()
-!$    write(*,"('OPENMP Number of threads: ',i0)") nthreads
+!$    write(*,"(' OPENMP Number of threads: ',i0)") nthreads
+      print *
       call printtime("End of Initiatization. Starting k-point loop")
-      write(formt,fmt="(a,i3,a,i4,a,3f7.3)") "Progress: ",0*100/effnkpt, " %  K-point: ", 1, "      k: ", kpoints(1,:)
+      write(formt,fmt="(a,i3,a,i4,a,3f7.3)") " Progress: ",0*100/effnkpt, " %  K-point: ", 1, "      k: ", kpoints(1,:)
       call printtime(formt)
 !$ end if
    allocate( evalues(twonaucell), halfevalues(naucell), leftevector(twonaucell,twonaucell), rightevector(twonaucell, twonaucell),  halfevector(naucell, naucell), evectorUnfol(2,2,naucell,naucell), work(2*twonaucell), rwork(2*twonaucell), rwork2(twonaucell) )
@@ -63,7 +65,7 @@ program dispersion
       call zgeev('V','V', twonaucell, Dmatrix(i,:,:), twonaucell, evalues, leftevector, twonaucell, rightevector, twonaucell, work, 2*twonaucell, rwork, info)
       
       !Sorting in a crescent order the energy values
-      call sort(evalues,leftevector,rightevector,twonaucell)
+      if( .not. Tneel) call sort(evalues,leftevector,rightevector,twonaucell)
 
       !Makes the Bogoliubov transformation making from the eigenvectors new operators that obey bosons commutation relation
       ! if(i==2) &
@@ -71,7 +73,7 @@ program dispersion
 
       ! !Getting rid of the opposite energy degeneracy
       ! call getriddegeneracy(i,evalues,rightevector,halfevalues,halfevector)
-      halfevalues = evalues(1:naucell)
+      halfevalues = dble(evalues(1:naucell)) + aimag(evalues(1:naucell))
       halfevector = leftevector(1:naucell,1:naucell)
       ! halfevector=rightevector(1:naucell,1:naucell)
 
@@ -82,26 +84,35 @@ program dispersion
 
       !Unfolding. Spectral function calculation
       if(unfolding) &
-!$       call unfoldingnoncol(i,halfevalues,evectorUnfol,k,spectra(i,:,:),lck)
-         ! call unfoldingnoncol(i,halfevalues,halfevector,k,spectra(i,:,:))
+!$       call unfoldingnoncol(i,halfevalues,evectorUnfol,k,spectra_aux,lck)
+         ! call unfoldingnoncol(i,halfevalues,halfevector,k,spectra_aux)
+
+!$       call inelastic_intensity(i,halfevalues,evectorUnfol,k,ine_intensities_aux)
 
 !       if(unfolding) &
-! !$       call subunfolding(i,halfevalues,halfevector,spectra(i,:,:),lck)
-!          call subunfolding(i,halfevalues,halfevector,spectra(i,:,:))
+! !$       call subunfolding(i,halfevalues,halfevector,spectra_aux,lck)
+!          call subunfolding(i,halfevalues,halfevector,spectra_aux)
+
+      spectra(i,:,:) = spectra_aux
+      ine_intensities(i,:,:) = ine_intensities_aux
+
+      call angular_momentum(i,evectorUnfol,k,expected_valueS_aux)
+
+      expected_valueS(i,:,:) = expected_valueS_aux
 
       !Calculation of the magnon occupation number
       if(i==1 .and. calc_occup ) &
          call occupationnumber(leftevector,evalues,mode)
 
       !Dispersion not unfolded
-      disp_matrix(i,:) = dble(halfevalues) + aimag(halfevalues)
+      disp_matrix(i,:) = dble(evalues) + aimag(evalues)
 
       !For the precession visualization
       rightevectorTOT(i,:,:) = rightevector
       evaluesTOT(i,:) = evalues
 
       !Informe on the terminal which points in being calculated (but once every 100 pts.)
-      write(formt,fmt="(a,i3,a,i4,a,3f7.3)") "Progress: ",i*100/effnkpt, " %  K-point: ", i, "      k: ", k
+      write(formt,fmt="(a,i3,a,i4,a,3f7.3)") " Progress: ",i*100/effnkpt, " %  K-point: ", i, "      k: ", k
       !This if allow to have this k points. For a single k point calculation, for example.
       if(effnkpt<5) then 
          call printtime(formt)
@@ -117,7 +128,7 @@ program dispersion
 !$omp end parallel
 
    !Storage making
-   call outputdata( disp_matrix, spectra, rightevectorTOT, evaluesTOT )
+   call outputdata( disp_matrix, spectra, ine_intensities, expected_valueS, rightevectorTOT, evaluesTOT )
 
    !Display the input parameters
    call printinginput()
