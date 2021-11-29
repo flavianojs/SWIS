@@ -45,6 +45,7 @@ module mod_global
    logical :: spirit_old_method=.false.
    logical :: atoms_distinguisable=.false.
    logical :: constant_energy_plot=.false.
+   logical :: circular_cartesian_convertion_factor=.true. !Add the convertion term from circular to catersian spin compenents when computing the neutron scattering cross section
    integer :: mode=1
    integer :: spin_dyn = 1
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -163,7 +164,7 @@ contains
       !===== logical var: turn on and off features =======================================
          spirit, spirit_input, unfolding, analytics, calc_occup, constant_energy_plot, & 
          toprint, printD, toprint_Rij, spirit_old_method, atoms_distinguisable, &
-         kpoint_mesh, Tneel, neutron_factor, &
+         kpoint_mesh, Tneel, neutron_factor, circular_cartesian_convertion_factor, &
       !===== others ======================================================================
          mode, spin_dyn, zero_toler
 
@@ -184,7 +185,10 @@ contains
       !write(*,nml=input)
 
       if(neutron_factor) then
-         print "(a)", " Neutron scattering polarization factor ON."
+         print "(a)", " Neutron scattering polarization factor is ON."
+      end if
+      if(circular_cartesian_convertion_factor) then
+         print "(a)", " Sum convertion from Circular to Cartesian on inelastic cross section is ON."
       end if
 
       !Reading the magnetic moment vector
@@ -1500,12 +1504,12 @@ contains
       ! In the code below, however, we use variable 'alpha', 'beta' for gamma and eta, and 'alpha_', 'beta_' for alpha and beta in the equations above.
       ! M derives from the transformation S^+- = 1/2 (S^x +- i S^y) actually from S^x = S^+ - S^-, S^y = -i(S^+ - S^-)   ==>  vec(Sx) = M vec(S+)
 
-      if(neutron_factor) then
+      if(circular_cartesian_convertion_factor) then
          Matrix(1,:) = [ cone,  cone, czero]
          Matrix(2,:) = [-ii  ,  ii  , czero]
          Matrix(3,:) = [czero, czero,  cone]
       
-         factor(3,3)=0.d0
+         factor = 0.d0
          do alpha = 1, 3; do beta = 1, 3
             factor_alpha_beta = 0.d0
             do alpha_=1, 3; do beta_=1,3
@@ -1516,8 +1520,12 @@ contains
                   delta_alpha_beta = 0.0d0
                end if
 
-               C_alpha_beta = ( delta_alpha_beta - k(alpha_)*k(beta_)/norm2(k) )
-               
+               if(neutron_factor) then
+                  C_alpha_beta = ( delta_alpha_beta - k(alpha_)*k(beta_)/norm2(k) )
+               else
+                  C_alpha_beta = 1.d0
+               end if
+
                factor_alpha_beta = factor_alpha_beta + Matrix(alpha_,alpha)*Matrix(beta_,beta) * C_alpha_beta
             end do; end do
             factor(alpha,beta) = factor_alpha_beta
@@ -1625,6 +1633,48 @@ contains
       integer :: r, p, mu, nu, alpha, beta, sii, ssf, polariz, i, j
       real(kind=pc) :: omega, diff(3), incrementomega!, tempD(4,8)
       complex(kind=pc) :: N_alp_bet, N_mu_nu, gamma_scat(3,2,2)!, F_mu_r(3), expected_aux(3)
+      real(kind=pc) :: C_alpha_beta, delta_alpha_beta
+      complex(kind=pc) :: factor(3,3), Matrix(3,3), factor_alpha_beta
+      integer :: alpha_, beta_
+
+      ! Calculate factor to account for the dipole interaction between neutron and electron in neutron scattering measurements.
+      ! The neutron cross section includes a summation over x,y,z like
+      ! sum_{alpha,beta} (delta_{alpha, beta} - k_alpha*k_beta/k^2) S_{alpha, beta}
+      ! However, in my calculations, I sum over +, -, z. 
+      ! I determinined that sum_{alpha,beta} C_{alpha,beta}*S_alpha*S_beta = sum_{gamma,eta}*S_gamma*S_eta *sum_{alpha,beta} C_{alpha, beta} M_{alpha,gamma}*M_{beta,eta}
+      ! where alpha, beta run over x,y,z and gamma, eta over +, -, z. And M = [[1,1,0], [-i, i, 0], [0, 0, 1]]
+      ! In the code below, however, we use variable 'alpha', 'beta' for gamma and eta, and 'alpha_', 'beta_' for alpha and beta in the equations above.
+      ! M derives from the transformation S^+- = 1/2 (S^x +- i S^y) actually from S^x = S^+ - S^-, S^y = -i(S^+ - S^-)   ==>  vec(Sx) = M vec(S+)
+
+      if(circular_cartesian_convertion_factor) then
+         Matrix(1,:) = [ cone,  cone, czero]
+         Matrix(2,:) = [-ii  ,  ii  , czero]
+         Matrix(3,:) = [czero, czero,  cone]
+      
+         factor = 0.d0
+         do alpha = 1, 3; do beta = 1, 3
+            factor_alpha_beta = 0.d0
+            do alpha_=1, 3; do beta_=1,3
+               
+               if( alpha_ == beta_ ) then
+                  delta_alpha_beta = 1.0d0
+               else
+                  delta_alpha_beta = 0.0d0
+               end if
+
+               if(neutron_factor) then
+                  C_alpha_beta = ( delta_alpha_beta - k(alpha_)*k(beta_)/norm2(k) )
+               else
+                  C_alpha_beta = 1.d0
+               end if
+
+               factor_alpha_beta = factor_alpha_beta + Matrix(alpha_,alpha)*Matrix(beta_,beta) * C_alpha_beta
+            end do; end do
+            factor(alpha,beta) = factor_alpha_beta
+         end do; end do
+      else
+         factor = 1.d0
+      end if
 
       do r = 1, naucell !Number of points in the y direction
          omega = eigenvalues(r)
@@ -1653,7 +1703,7 @@ contains
                ! end do
 
                N_mu_nu = 2.d0 * sqrt( Si(mu) * Si(nu) ) * N_mu_nu / naucell !I am trying to normalize the spectra intensity for any number of atoms in the unit cell
-               N_alp_bet = N_alp_bet + exp( -ii*dot_product(k, diff) ) * Uweight(mu)*Uweight(nu) * N_mu_nu
+               N_alp_bet = N_alp_bet + exp( -ii*dot_product(k, diff) ) * Uweight(mu)*Uweight(nu) * N_mu_nu * factor(alpha,beta)
             end do; end do !mu, nu
             do sii=1,2; do ssf=1,2
                do polariz = 1, 3
