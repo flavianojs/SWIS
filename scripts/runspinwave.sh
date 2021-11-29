@@ -1,14 +1,19 @@
 #!/bin/bash
 
-   groundstate=0
-       compile=1
-     executing=1
-forceexecuting=0
-       lattice=0
-    occupation=0
-         kpath=0 
-dispersionplot=1
-        spirit=0
+    groundstate=0
+        compile=1
+      executing=1
+ forceexecuting=0
+        lattice=0
+     occupation=0
+          kpath=0
+ dispersionplot=0 
+         spirit=0
+
+spirit_config_file='input_MnSinoncol.cfg'
+
+gnuscript="disp_unfol_multi_3panels.gnu"
+gnuscript="disp_unfol_multi_1panels.gnu"
 
 export OMP_NUM_THREADS=1
 # ulimit -s unlimited
@@ -22,16 +27,19 @@ SWcode_executable="main_$host.exe"
 if [ $host == 'Flavianos-MacBook-Pro.local' ] || [ $host == 'tsf-452-wpa-4-009.epfl.ch' ] ; then
     source /opt/intel/bin/compilervars.sh intel64
     source /opt/intel/mkl/bin/mklvars.sh intel64
+    export OMP_NUM_THREADS=8
 
 # For mb-santos
 elif [ $host == 'mb-dossantos' ] ; then
     source /usr/local/bin/compilervars.sh intel64
     # source /usr/local/intel/mkl/bin/mklvars.sh intel64
+    export OMP_NUM_THREADS=8
 
 # For theospc47
 elif [ $host == 'theospc47' ] ; then
 	source /opt/intel/bin/compilervars.sh intel64
 	source /opt/intel/mkl/bin/mklvars.sh intel64
+    export OMP_NUM_THREADS=16
 else
     echo "Unknown Hostcomputer: $host"
 fi
@@ -97,8 +105,9 @@ done
     if [ $spirit -eq 1 ]; then
         echo -e '******* Ground state ***********'
 
+        python scale_pair.py
 
-        spirit_config_file='input_MnSinoncol.cfg'
+        # spirit_config_file='input_MnSinoncol.cfg'
         # # spirit_final_state='spirit_output/spinconfig_MnSinoncol_test.ovf'
         # spirit_initial_state='spirit_output/spinconfig_MnSinoncol_initial.ovf'
         spirit_initial_state='spirit_output/spinconfig_MnSinoncol_initial_random.ovf'
@@ -275,7 +284,8 @@ done
       echo
       echo "Plotting dispersion ..."
 
-      gnuscript="disp_unfol_multi.gnu"
+      # gnuscript="disp_unfol_multi.gnu"
+      
 
       maxomega=$(grep "maxomega" inputcard_$XX.inp | awk '{print $3}' | cut -d ',' -f 1)
       minomega=$(grep "minomega" inputcard_$XX.inp | awk '{print $6}' | cut -d ',' -f 1)
