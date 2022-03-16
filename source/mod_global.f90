@@ -59,8 +59,8 @@ module mod_global
    integer :: origcell !The index of the origin cell
    complex(kind=pc), allocatable :: highsymm(:,:), Rotpm(:,:,:), g(:,:)
    complex(kind=pc) :: paulimatrix(3,3,2,2), paulimatrix_cartesian(3,2,2), paulimatrix_cartesian_rotated(3,2,2)
-   real(kind=pc) :: beg_cpu_time, positions(10000,3), DJvect(10000,4)
-   integer :: ijda_db_dc(10000,5)
+   real(kind=pc) :: beg_cpu_time, positions(100000,3), DJvect(100000,4)
+   integer :: ijda_db_dc(100000,5)
    logical :: maxomegaOK
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -491,7 +491,7 @@ contains
                if( l1 == naucell - 1 ) atoms_distinguisable = .true. !Test if the interaction for the last atom was given, then it assumes that the atom are considered distinguisible, and that the set of interaction for each atom is given
 
                counter = counter + 1
-               if(counter>10000) stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
+               if(counter>100000) stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
 
                if( spirit_input_given ) then
                   positions(counter,:) = d1*a1 + d2*a2 + d3*a3
