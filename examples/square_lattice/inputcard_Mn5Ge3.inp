@@ -1,0 +1,103 @@
+!!!!!!!!!!!!!!!!! Simulation control board (Parameters) !!!!!!!!!!!!!
+&input
+dims = 1 1 0, !Determines the dimension of the problem. Each dimension shall be filled by 1 or 0
+npt = 100, naucell = 2, ncellpdim = 2,! n. of k-point in the disperion; n. of atom in the unit cell; number of real space unit cell for the Fourier transformation
+latcons = 1.d0, nndist = 1.d0,
+spirit = .true.,
+!Unfolding:
+unfolding = .true.,
+nptomega = 100,
+maxomega = 30.0, minomega = 0, eta=8.0d-1,
+
+a1 =  2.0d0  0.0d0                0.0d0,   !In unit of the lattice constant, 
+a2 =  0.0d0  1.0d0                0.0d0,   ! i.e., a1 will become later a1=a1*latcons
+a3 =  0.0d0  0.0d0                1.0d0, 
+
+!               phi       theta 
+polarization1 = 0.0d0 1.57079632679490d0,               !x
+polarization2 = 1.57079632679490d0 1.57079632679490d0,  !y
+polarization3 = 0.d0 0.d0,                              !z  
+
+Jnn = 0.d0, Dnn = 0.0d0, 
+
+muB = 5.7883818012d-2, !Bohr magneton in meV. Set to 1.d0 if want to input 'hmm0' direct in meV.
+hmagunitvec = 0.d0  0.d0 1.d0,
+!in Tesla. For meV, make 'muB = 1.d0'
+hm0 = 0.0d0,
+mu_s = 1.0d0, ! mag. mom.
+! mu_s_vec = 2.44 2.44 2.44 2.44 2.44 2.44 2.44 2.44 1.20 1.20 1.20 1.20 1.20 1.20 1.20 1.20 ,
+gamma = 2.d0, ! S = mu_s / gamma
+J_D_scaling = 2.0d0, ! For the difference between in the inner hamiltonian and the JMcode/Spirit one.
+kaniunitvec = 0.d0  1.d0 0.d0, kanis =  0.0d-0, ! k = knais . g^2 / mu_s^2
+kaniunitvec2= 0.d0  0.d0 1.d0, kanis2=  0.0d-0, ! k = knais . g^2 / mu_s^2
+
+! !This set was ajusted to reproduce the dispersion in Nikolaos Fig. 6 exp data
+! J_D_scaling = 2.5d-1, ! For the difference between in the inner hamiltonian and the JMcode/Spirit one.
+! kaniunitvec = 0.d0  1.d0 0.d0, kanis =  0.12d-1, ! k = knais . g^2 / mu_s^2
+! kaniunitvec2= 0.d0  0.d0 1.d0, kanis2=  0.09d-1, ! k = knais . g^2 / mu_s^2
+
+! !This set reproduce the energy of the two peaks at (1.06, 2, 0)
+! kaniunitvec = 0.d0  1.d0 0.d0, kanis =  0.00081d0, ! k = knais . g^2 / mu_s^2
+! kaniunitvec2= 0.d0  0.d0 1.d0, kanis2= -0.0026d0, ! k = knais . g^2 / mu_s^2
+
+
+spirit_old_method=.true.
+spirit = .true.,
+toprint = .false.,
+analytics = .false.,
+calc_occup = .false., 
+mode = 1, !For which mode should the occup. numb. be calculated
+spin_dyn = 1,
+internalunit = .true.
+
+! neutron_factor = .false.,
+! circular_cartesian_convertion_factor = .true.,
+/
+
+&input2
+!The high symmetry points P=(p1,p2,p3,p4) are given via the matrix M(4x4), where P=Mb, and b=(b1,b2,b3,0), the reciprocal lattice vectors 
+syptsMataux =
+               0.0d0   0.0d0  0.0d0
+               0.5d0   0.0d0  0.0d0
+               0.5d0   0.5d0  0.0d0
+               0.0d0   0.0d0  0.0d0
+
+            ,
+
+basisname   = "spirit_output/spinconfig_final.ovf",
+pairfile    = "inputfiles/pair_temp.txt",
+latticefile = "inputfiles/lattice.dat"
+/
+
+!inputfiles/pairMnSi.txt   !inputfiles/pairMnSi.txt
+!(-1 1)   (0 1)    (1 1)   !(-1 1)   (0 1)    (1 1)
+!      7|6*    7|6*        !     11|22*  11|22*     
+!     -------------        !     -------------     
+!      1|0*    1|0*        !     16|23*  16|23*     
+!       |   8   |          !       |       |       
+!    3* 12 2 3* | (1 0)    !(-1 0) | 14 24*| (1 0) 
+!    5* 13 4 5* |          !       | 13 21*|       
+!       |   9   |          !       |       |       
+!      7|6*    7|6*        !     11|22*  11|22*     
+!     -------------        !     -------------     
+!      1|0*    1|0*        !     16|23*  16|23*     
+!(-1-1)   (0 -1)  (1 -1)   !(-1-1)   (0 -1)  (1 -1) 
+
+! 23        -0.382000    0.661643    0.52259668270614 
+! 16         0.382000    0.661643    0.17419889423538 
+! 14        -0.118000    0.204382    0.17419889423538 
+! 24         0.118000    0.204382    0.52259668270614 
+! 13        -0.118000    1.527669    0.17419889423538 
+! 21        -0.882000    1.527669    0.52259668270614 
+! 22        -0.382000    1.070407    0.52259668270614 
+! 11        -0.618000    1.070407    0.17419889423538 
+
+&input3
+!For the ground state program
+itmax   = 8000000, 
+epsi    = 1.d-7,
+step    = 0.05d0,
+rinit   = .true.,
+itwrite = .true. 
+/
+

@@ -1,0 +1,30 @@
+In this example, we are considering a 2-d square lattice represented by a rectangular unit cell with 2 atoms:
+
+--------------------
+|* *| * *| * *| * *| 
+--------------------
+|* *| * *| * *| * *| 
+--------------------
+|* *| * *| * *| * *| 
+--------------------
+|* *| * *| * *| * *| 
+--------------------
+
+All inputcards have a posfix that helps you to label your simulation. In our case, it is Mn5Ge3. You can choose your own (by renaming all inputcards) but you can not have space or _ in this prefix.
+
+Update the "interaction_pairs_file" path in the spirit inputfile "input_Mn5Ge3.cfg"
+
+Files that you might want to edit in the SWIS inputfile "inputcard_Mn5Ge3.inp": 
+
+   basisname   = "spirit_output/spinconfig_final.ovf" (Use spirit to generate this)
+   pairfile    = "inputfiles/pair_temp.txt"
+   latticefile = "inputfiles/lattice.dat"
+
+Match primitive vectors between the SWIS and Spirit inputfiles.
+
+If you change some parameter such as the magnetic field, you need to edit by hand both spirit and the SWIS inputfiles making them to match.
+
+Before running the code for the first time, you might need to configure the section "--- Setup environment ---" in the SWIS running script "runspinwave.sh"
+
+Run the code with "./runspinwave.sh Mn5Ge3"
+

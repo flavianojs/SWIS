@@ -1,0 +1,51 @@
+# OOMMF OVF 2.0
+#
+# Segment count: 000001
+#
+# Begin: Segment
+# Begin: Header
+#
+# Title: SPIRIT Version 2.1.1 (945e3d50e1187)
+#
+# Desc: -
+#
+# valuedim: 3   ## field dimensionality
+# valueunits: none none none
+# valuelabels: spin_x spin_y spin_z
+#
+## Fundamental mesh measurement unit. Treated as a label:
+# meshunit: nm
+#
+# xmin: -0.038015
+# ymin: 0
+# zmin: 0
+# xmax: 0.07603
+# ymax: 0.0658439
+# zmax: 0.052755
+#
+# meshtype: rectangular
+# xbase: 0
+# ybase: 0
+# zbase: 0
+# xstepsize: 0.1
+# ystepsize: 0.0866025
+# zstepsize: 0.07034
+# xnodes: 10
+# ynodes: 1
+# znodes: 1
+#
+# End: Header
+#
+# Begin: Data Text
+        0.000010062654        0.000000000000        0.999999999949
+        0.000010062654        0.000000000000        0.999999999949
+       -0.000010062654        0.000000000000        0.999999999949
+       -0.000010062654        0.000000000000        0.999999999949
+        0.000000000000        0.000000000000        1.000000000000
+        0.000000000000        0.000000000000        1.000000000000
+        0.000000000000        0.000000000000        1.000000000000
+        0.000000000000       -0.000000000000        1.000000000000
+       -0.000000000000        0.000000000000        1.000000000000
+       -0.000000000000       -0.000000000000        1.000000000000
+# End: Data Text
+# End: Segment
