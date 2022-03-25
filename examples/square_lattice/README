@@ -10,6 +10,12 @@ In this example, we are considering a 2-d square lattice represented by a rectan
 |* *| * *| * *| * *| 
 --------------------
 
+The scripts rely on the folder structure given in this example folder. So we recommend you to follow the same structure containing the following folders:
+   inputfiles
+   outputfiles
+   spirit_output
+   temp
+
 All inputcards have a posfix that helps you to label your simulation. In our case, it is Mn5Ge3. You can choose your own (by renaming all inputcards) but you can not have space or _ in this prefix.
 
 Update the "interaction_pairs_file" path in the spirit inputfile "input_Mn5Ge3.cfg"
