@@ -9,8 +9,13 @@
           kpath=0
  dispersionplot=0 
          spirit=0
+     scale_pair=0
 
 spirit_config_file='input_MnSinoncol.cfg'
+spirit_initial_state='spirit_output/spinconfig_MnSinoncol_initial_random.ovf'
+
+scale_input='inputfiles/pair.txt'
+scale_output='inputfiles/pair_temp.txt'
 
 gnuscript="disp_unfol_multi_3panels.gnu"
 gnuscript="disp_unfol_multi_1panels.gnu"
@@ -22,6 +27,11 @@ host=`hostname`
 echo Hostname: $host
 
 SWcode_executable="main_$host.exe"
+
+if ! [ -f "$SWcode_executable" ]; then
+    echo "$SWcode_executable does not exist. Forcing compilation."
+    rule="recompile ${rule}"
+fi
 
 # For flaviano's MacBook Pro
 if [ $host == 'Flavianos-MacBook-Pro.local' ] || [ $host == 'tsf-452-wpa-4-009.epfl.ch' ] ; then
@@ -102,17 +112,15 @@ done
       cd .. 
    fi
 
+    if [ $scale_pair -eq 1 ]; then
+        echo -e '******* Scale pair ***********'
+        python scale_pair.py $scale_input $scale_output
+    fi
+
     if [ $spirit -eq 1 ]; then
         echo -e '******* Ground state ***********'
 
-        python scale_pair.py
-
-        # spirit_config_file='input_MnSinoncol.cfg'
-        # # spirit_final_state='spirit_output/spinconfig_MnSinoncol_test.ovf'
-        # spirit_initial_state='spirit_output/spinconfig_MnSinoncol_initial.ovf'
-        spirit_initial_state='spirit_output/spinconfig_MnSinoncol_initial_random.ovf'
         spirit_final_state=$(grep "basisname" inputcard_$XX.inp | awk '{print $3}' | cut -d '"' -f 2 | cut -d ',' -f 2)
-
 
         should_execute=false
         # if [ $forceexecuting -eq 1 ]; then
