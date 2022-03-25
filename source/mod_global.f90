@@ -1043,7 +1043,7 @@ contains
       ! end do   
 
       !Informs the number of n.n sites
-      print "(a,f18.10)", " Average number of atoms in the cluster (n. near neighbours):             ", real(sumnnn)/naucell
+      print "(a,f18.10)", " Average number of atoms in the cluster (n. near neighbours):             ", dble(sumnnn)/dble(naucell)
 
       !Tests the vanishing of the linear term of the HP transformation
       do l1 = 1, naucell
