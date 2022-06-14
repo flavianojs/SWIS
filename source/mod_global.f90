@@ -17,6 +17,7 @@ module mod_global
    integer :: n_basis_cells(3) = [1.d0,1.d0,1.d0] !To expand the unit cell to form the simulation box
    integer :: npt, naucell, ncellpdim=2, npath, ncpdim ! n. of k-point in the disperion; n. of atom in the unit cell; number of real space unit cell for the Fourier transformation
    integer :: twonaucell, effnkpt, nptomega=0, n_nndists=0
+   integer :: max_num_kpt_path=50, max_num_ani=100
    integer, allocatable :: nkpt_npath(:)
    real(kind=pc) :: latcons
    real(kind=pc) :: a1(3), big_a1(3), b1(3)
@@ -54,12 +55,14 @@ module mod_global
    !!!!!!!!!!!!!!!! Auto determined global variables !!!!!!!!!!!!!!!!!!!
    real(kind=pc) :: Jx, Jy, Jz, maxomega=0.123456789d0, minomega=0.123456789d0, eta=1.d-1 , rescalf=1.1d0, zero_toler=1.d-5
    real(kind=pc) :: Dx, Dy, Dz, hmag(3), bb(3,3), nndist=0.d0
-   real(kind=pc), allocatable :: r0j(:,:), anglesphi(:), anglestheta(:), Si(:), Si_aux(:), basis(:,:) , kpoints(:,:), dkpoints(:), symmpts(:,:), syptsMataux(:,:), syptsMat(:,:), Rotmat(:,:,:), Uweight(:), mu_s_vec_aux(:)
+   real(kind=pc), allocatable :: r0j(:,:), anglesphi(:), anglestheta(:), Si(:), Si_aux(:), basis(:,:) , kpoints(:,:), dkpoints(:), symmpts(:,:), syptsMataux(:,:), syptsMat(:,:), Rotmat(:,:,:), Uweight(:), mu_s_vec_aux(:), n_anisotropy_aux(:,:), n_anisotropy(:,:), anisotropy_vecs(:,:)
    integer :: ninteraction_pairs, ncell !Number of unit cells
    integer :: origcell !The index of the origin cell
+   integer :: num_anisotropies = 0
    complex(kind=pc), allocatable :: highsymm(:,:), Rotpm(:,:,:), g(:,:)
    complex(kind=pc) :: paulimatrix(3,3,2,2), paulimatrix_cartesian(3,2,2), paulimatrix_cartesian_rotated(3,2,2)
    real(kind=pc) :: beg_cpu_time, positions(100000,3), DJvect(100000,4)
+   real(kind=pc) ::  kaniunitvec3(3), kanis3
    integer :: ijda_db_dc(100000,5)
    logical :: maxomegaOK
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -168,7 +171,7 @@ contains
       !===== others ======================================================================
          mode, spin_dyn, zero_toler
 
-      namelist /input2/ Uweight, syptsMataux, basisname, pairfile, latticefile
+      namelist /input2/ Uweight, syptsMataux, basisname, pairfile, latticefile, n_anisotropy_aux
          
       ! Reading the inputs and allocating variables   
       inquire(file=inputcardname, exist=file_exists)
@@ -206,6 +209,7 @@ contains
       else
          mu_s_vec_aux = mu_s_vec(1:naucell) 
       end if
+      print "(a,1000f8.4)", " Mag moms= ", mu_s_vec_aux
 
       !If to compute spectrum of a energy cut, we use a kpoint mesh instead of a kpoint path.
       if( constant_energy_plot ) kpoint_mesh = .true.
@@ -280,21 +284,44 @@ contains
       end if
 
       twonaucell = 2*naucell
-      allocate( syptsMataux(3,51), g(twonaucell,twonaucell), Uweight(naucell) )
+      allocate( syptsMataux(3,max_num_kpt_path+2), g(twonaucell,twonaucell), Uweight(naucell), n_anisotropy_aux(5,max_num_ani) )
 
       Uweight = 1.d0 !Default value
       syptsMataux = 0.123456789d0
+      n_anisotropy_aux = 0.123456789d0
 
       read(101, nml=input2)
 
-      do i = 1, 51
+      do i = 1, max_num_kpt_path+2
          if( syptsMataux(1,i) == 0.123456789d0 ) then 
             npath = i - 2
             print "(a,i0)", " Attributing 'npath' = ", npath
             exit
          end if
+         if( i == max_num_kpt_path+2 ) then
+            print *, "It is better that you make 'max_num_kpt_path' larger than", max_num_kpt_path, "Stopping."
+            stop
+         end if
       end do
       allocate( syptsMat(npath+1,3) )
+
+      do i = 1, max_num_ani
+         if( n_anisotropy_aux(1,i) == 0.123456789d0 ) then 
+            num_anisotropies = i-1
+            print "(a,i0,a)", " Number of anisotropy lines = ", num_anisotropies
+            exit
+         end if
+         if( i == max_num_ani ) then
+            print *, "It is better that you make 'max_num_ani' larger than", max_num_ani, "Stopping."
+            stop
+         end if
+      end do
+      allocate( n_anisotropy(num_anisotropies,5) )
+      n_anisotropy = transpose(n_anisotropy_aux(:,1:num_anisotropies))
+      print *, "  i      Kx             Ky             Kz             K"
+      do j=1, num_anisotropies
+         print "(i4,' '4f15.10)", int(n_anisotropy(j,1)), n_anisotropy(j,2:)  
+      end do
 
       if(nndist==0.d0) then
          print *, "No n.n distance inputted! Setting it to its default value: nndist=latcons"
@@ -312,10 +339,36 @@ contains
 
       !make sure we have a unitarian vector
       kaniunitvec = kaniunitvec / norm2(kaniunitvec)
+      kaniunitvec = kaniunitvec / norm2(kaniunitvec)
       kaniunitvec = kaniunitvec * kanis * gamma**2/(mu_s**2)
 
       kaniunitvec2 = kaniunitvec2 / norm2(kaniunitvec2)
       kaniunitvec2 = kaniunitvec2 * kanis2 * gamma**2/(mu_s**2)
+
+      allocate(anisotropy_vecs(naucell,3))
+
+      do i=1, naucell
+         anisotropy_vecs(i,:) = kaniunitvec + kaniunitvec2
+      end do
+      ! print *, 'kaniunitvec + kaniunitvec2'
+      ! do i=1, naucell
+      !    print *, anisotropy_vecs(i,:)
+      ! end do
+      do i=1, num_anisotropies
+         j = int(n_anisotropy(i,1))
+         kaniunitvec3 = n_anisotropy(i,2:4)
+         kanis3 = n_anisotropy(i,5)
+
+         !make sure we have a unitarian vector
+         kaniunitvec3 = kaniunitvec3 / norm2(kaniunitvec3)
+         kaniunitvec3 = kaniunitvec3 * kanis3 * gamma**2/(mu_s**2)
+
+         anisotropy_vecs(j+1,:) = anisotropy_vecs(j+1,:) + kaniunitvec3
+      end do
+      ! print *, 'with individual anisotropies'
+      ! do i=1, naucell
+      !    print *,  anisotropy_vecs(i,:)
+      ! end do
 
       hmagunitvec = hmagunitvec / norm2(hmagunitvec)
       hmag(:) = hmagunitvec * (muB * hm0) * gamma
@@ -918,9 +971,12 @@ contains
                   end if !if spirit mode
 
                   if(j==origcell .and. l1==l2) then
-                     Jtemp(1,1) = Jtemp(1,1) + 2.0d0*(kaniunitvec(1) + kaniunitvec2(1))
-                     Jtemp(2,2) = Jtemp(2,2) + 2.0d0*(kaniunitvec(2) + kaniunitvec2(2))
-                     Jtemp(3,3) = Jtemp(3,3) + 2.0d0*(kaniunitvec(3) + kaniunitvec2(3))
+                     Jtemp(1,1) = Jtemp(1,1) + 2.0d0*(anisotropy_vecs(l1,1))
+                     Jtemp(2,2) = Jtemp(2,2) + 2.0d0*(anisotropy_vecs(l1,2))
+                     Jtemp(3,3) = Jtemp(3,3) + 2.0d0*(anisotropy_vecs(l1,3))
+                     ! Jtemp(1,1) = Jtemp(1,1) + 2.0d0*(kaniunitvec(1) + kaniunitvec2(1))
+                     ! Jtemp(2,2) = Jtemp(2,2) + 2.0d0*(kaniunitvec(2) + kaniunitvec2(2))
+                     ! Jtemp(3,3) = Jtemp(3,3) + 2.0d0*(kaniunitvec(3) + kaniunitvec2(3))
                   end if
                   ! if(l1==2 .and. l2==2 .and. j==116) print "(a,8f9.4)", "J0j_aux", Jtemp(1,1), Jtemp(1,2), Jtemp(2,1), Jtemp(2,2) !For test, to be deleted
 
@@ -1016,9 +1072,12 @@ contains
             HPmatrixj_aux(3,3) = sqrt(ctwo/Si_aux(l2))
             HPmatrixj_aux = sqrt(Si_aux(l2)/2.d0)*HPmatrixj_aux
             
-            Jtemp(1,1) = 2.0d0*(kaniunitvec(1) + kaniunitvec2(1))
-            Jtemp(2,2) = 2.0d0*(kaniunitvec(2) + kaniunitvec2(2))
-            Jtemp(3,3) = 2.0d0*(kaniunitvec(3) + kaniunitvec2(3))
+            Jtemp(1,1) = 2.0d0*(anisotropy_vecs(l1,1))
+            Jtemp(2,2) = 2.0d0*(anisotropy_vecs(l1,2))
+            Jtemp(3,3) = 2.0d0*(anisotropy_vecs(l1,3))
+            ! Jtemp(1,1) = 2.0d0*(kaniunitvec(1) + kaniunitvec2(1))
+            ! Jtemp(2,2) = 2.0d0*(kaniunitvec(2) + kaniunitvec2(2))
+            ! Jtemp(3,3) = 2.0d0*(kaniunitvec(3) + kaniunitvec2(3))
             
             hmagvec(l2,:) = matmul( hmag(:), Rotmatj )
             if( .not. Tneel ) hmagvec(l2,:) = matmul( hmagvec(l2,:), HPmatrixj_aux )
