@@ -28,7 +28,7 @@ module mod_global
    !The Interactions
    real(kind=pc) :: Jnn=0.0d0, all_Jnn(20)=0.d0, all_nndist(20)=0.d0, Dnn=0.d0, kanis=0.d0, kanis2=0.d0, hm0=0.d0, muB=1.d0, interactions_cutoff_radius = 1.d6
    real(kind=pc) :: hmagunitvec(3), kaniunitvec(3) = [0.d0, 0.d0, 1.d0], kaniunitvec2(3) = [0.d0, 0.d0, 1.d0], J_D_scaling=0.123456789d0
-   real(kind=pc) :: mu_s=1.d0, gamma=1.d0 ! mag mom equals to gamma times the spin operator: mu_s = gamma * S
+   real(kind=pc) :: mu_s(1000)=0.123456789d0, gamma=1.d0 ! mag mom equals to gamma times the spin operator: mu_s = gamma * S
    real(kind=pc) :: mu_s_vec(1000) = 0.123456789d0
 
    !Calculations to be performed
@@ -55,7 +55,7 @@ module mod_global
    !!!!!!!!!!!!!!!! Auto determined global variables !!!!!!!!!!!!!!!!!!!
    real(kind=pc) :: Jx, Jy, Jz, maxomega=0.123456789d0, minomega=0.123456789d0, eta=1.d-1 , rescalf=1.1d0, zero_toler=1.d-5
    real(kind=pc) :: Dx, Dy, Dz, hmag(3), bb(3,3), nndist=0.d0
-   real(kind=pc), allocatable :: r0j(:,:), anglesphi(:), anglestheta(:), Si(:), Si_aux(:), basis(:,:) , kpoints(:,:), dkpoints(:), symmpts(:,:), syptsMataux(:,:), syptsMat(:,:), Rotmat(:,:,:), Uweight(:), mu_s_vec_aux(:), n_anisotropy_aux(:,:), n_anisotropy(:,:), anisotropy_vecs(:,:)
+   real(kind=pc), allocatable :: r0j(:,:), anglesphi(:), anglestheta(:), Si(:), Si_aux(:), basis(:,:) , kpoints(:,:), dkpoints(:), symmpts(:,:), syptsMataux(:,:), syptsMat(:,:), Rotmat(:,:,:), Uweight(:), mu_s_vec_aux(:), mu_s_array(:), n_anisotropy_aux(:,:), n_anisotropy(:,:), anisotropy_vecs(:,:)
    integer :: ninteraction_pairs, ncell !Number of unit cells
    integer :: origcell !The index of the origin cell
    integer :: num_anisotropies = 0
@@ -195,21 +195,33 @@ contains
       end if
 
       !Reading the magnetic moment vector
-      allocate( mu_s_vec_aux(naucell) )
+      allocate( mu_s_array(naucell) )
 
       ! Search for the location of the first element equal to 0.123456789d0, 
-      i = FINDLOC(mu_s_vec, 0.123456789d0, 1)
+      i = FINDLOC(mu_s, 0.123456789d0, 1)
 
-      if( i < naucell + 1 ) then
-         mu_s_vec_aux = mu_s
-         
-         if( i > 1 ) then
-            print "(3a)", " In file: '", trim(inputcardname), "'. ATTENTION: Number of magmetic moment does not match number of sites. Using 'mu_s' for all sites."
+      ! If only one mag mom was given, use it for all sites
+      if( i==2 ) then
+         mu_s_array = mu_s(1)
+      ! If no mag mom was inputed
+      else if( i==1 ) then
+         j = FINDLOC(mu_s_vec, 0.123456789d0, 1)
+         if( j==naucell+1 ) then
+            mu_s_array = mu_s_vec(1:naucell)
+         ! If no mu_s nor mu_s_vec were inputted
+         else if( j==1 ) then
+            print *, " ATTENTION! No magnetic momement 'mu_s' was given. Setting mu_s = 1 which corresponds to spin 1/2 to all sites."
+            mu_s_array = 1.d0
+         else
+            stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
          end if
+      ! If number of mag mom is not equal to the number of sites
+      else if( i .NE. naucell+1 ) then
+         stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
       else
-         mu_s_vec_aux = mu_s_vec(1:naucell) 
+         mu_s_array = mu_s(1:naucell)
       end if
-      print "(a,1000f8.4)", " Mag moms= ", mu_s_vec_aux
+      print "(a,1000f8.4)", " Mag moms= ", mu_s_array
 
       !If to compute spectrum of a energy cut, we use a kpoint mesh instead of a kpoint path.
       if( constant_energy_plot ) kpoint_mesh = .true.
@@ -320,7 +332,7 @@ contains
       n_anisotropy = transpose(n_anisotropy_aux(:,1:num_anisotropies))
       print *, "  i      Kx             Ky             Kz             K"
       do j=1, num_anisotropies
-         print "(i4,' '4f15.10)", int(n_anisotropy(j,1)), n_anisotropy(j,2:)  
+         print "(i4,' ',4f15.10)", int(n_anisotropy(j,1)), n_anisotropy(j,2), n_anisotropy(j,3), n_anisotropy(j,4), n_anisotropy(j,5)
       end do
 
       if(nndist==0.d0) then
@@ -337,31 +349,33 @@ contains
 
       syptsMat = transpose(syptsMataux(:,1:npath+1))
 
-      !make sure we have a unitarian vector
-      kaniunitvec = kaniunitvec / norm2(kaniunitvec)
-      kaniunitvec = kaniunitvec / norm2(kaniunitvec)
-      kaniunitvec = kaniunitvec * kanis * gamma**2/(mu_s**2)
-
-      kaniunitvec2 = kaniunitvec2 / norm2(kaniunitvec2)
-      kaniunitvec2 = kaniunitvec2 * kanis2 * gamma**2/(mu_s**2)
-
       allocate(anisotropy_vecs(naucell,3))
+      anisotropy_vecs(:,:) = 0.d0
 
       do i=1, naucell
-         anisotropy_vecs(i,:) = kaniunitvec + kaniunitvec2
+         !make sure we have a unitarian vector
+         kaniunitvec3 = kaniunitvec / norm2(kaniunitvec)
+         kaniunitvec3 = kaniunitvec3 * kanis * gamma**2/(mu_s_array(i)**2)
+
+         anisotropy_vecs(i,:) = anisotropy_vecs(i,:) + kaniunitvec3
+
+         kaniunitvec3 = kaniunitvec2 / norm2(kaniunitvec2)
+         kaniunitvec3 = kaniunitvec3 * kanis2 * gamma**2/(mu_s_array(i)**2)
+
+         anisotropy_vecs(i,:) = anisotropy_vecs(i,:) + kaniunitvec3
       end do
       ! print *, 'kaniunitvec + kaniunitvec2'
       ! do i=1, naucell
       !    print *, anisotropy_vecs(i,:)
       ! end do
       do i=1, num_anisotropies
-         j = int(n_anisotropy(i,1))
+         j = int(n_anisotropy(i,1)) ! Site index, starting from zero to match input of Spirit
          kaniunitvec3 = n_anisotropy(i,2:4)
          kanis3 = n_anisotropy(i,5)
 
          !make sure we have a unitarian vector
          kaniunitvec3 = kaniunitvec3 / norm2(kaniunitvec3)
-         kaniunitvec3 = kaniunitvec3 * kanis3 * gamma**2/(mu_s**2)
+         kaniunitvec3 = kaniunitvec3 * kanis3 * gamma**2/(mu_s_array(j+1)**2)
 
          anisotropy_vecs(j+1,:) = anisotropy_vecs(j+1,:) + kaniunitvec3
       end do
@@ -437,9 +451,9 @@ contains
             !In the 'spirit' mode, the spin orientation are read in cartesian coordinates.
             read(unit=90, fmt=*) Sx, Sy, Sz
 
-            Sx = Sx * (mu_s/gamma)
-            Sy = Sy * (mu_s/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
-            Sz = Sz * (mu_s/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
+            Sx = Sx * (mu_s_array(i)/gamma)
+            Sy = Sy * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
+            Sz = Sz * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
             Si(i) = norm2([Sx, Sy, Sz])
             anglestheta(i) = acos( Sz/Si(i))
 
@@ -449,11 +463,6 @@ contains
                anglesphi(i) = atan2( Sy, Sx )
             end if
 
-            ! Special vectors with varying magnetic moment to account for the magnetic field
-            Sx = Sx * mu_s_vec_aux(i) / mu_s
-            Sy = Sy * mu_s_vec_aux(i) / mu_s 
-            Sz = Sz * mu_s_vec_aux(i) / mu_s
-            Si_aux(i) = norm2([Sx, Sy, Sz])
          end do
 
          if( spirit_input_given ) then
@@ -505,7 +514,7 @@ contains
 
             !This factor of 2 is to ajust difference between this hamiltonian here and the spirit code
             if( J_D_scaling == 0.123456789d0 ) J_D_scaling = 2.d0
-            print "(a,f7.3,a,f7.3,a)", " J and D are being rescalled by 'J_D_scaling/(mu_s**2)'=", J_D_scaling, "/", mu_s**2, "."
+            print "(a,f7.3,a)", " J and D are being rescalled by 'J_D_scaling/(mu_s**2)'=", J_D_scaling, "/ mu_s**2."
             print "(a)", " When 'Spirit mode' is on, if not given, 'J_D_scaling' is automatically set to 2 ajusting ..."
             print "(a)", "                    ... the differnce between the inner hamiltonian and the 'spirit code' one."
 
@@ -578,10 +587,11 @@ contains
                   print "(3(f12.8))", position
                end if  
 
-               DJvect(counter,:) = [Dx, Dy, Dz, Jnn] * J_D_scaling * gamma**2/(mu_s**2)
+               ! l1+1 because the index from the pair interaction files (same for spirit), starts indexing with zero
+               DJvect(counter,:) = [Dx, Dy, Dz, Jnn] * J_D_scaling * gamma**2/(mu_s_array(l1+1)*mu_s_array(l2+1))
 
                if( Dnn .ne. 0.d0 ) then
-                  DJvect(counter,:) = [Dx*Dnn/norm2([Dx,Dy,Dz]), Dy*Dnn/norm2([Dx,Dy,Dz]), Dz*Dnn/norm2([Dx,Dy,Dz]), Jnn] * J_D_scaling * gamma**2/(mu_s**2)
+                  DJvect(counter,:) = [Dx*Dnn/norm2([Dx,Dy,Dz]), Dy*Dnn/norm2([Dx,Dy,Dz]), Dz*Dnn/norm2([Dx,Dy,Dz]), Jnn] * J_D_scaling * gamma**2/(mu_s_array(l1+1)*mu_s_array(l2+1))
                end if
             end do
             close(unit=92)
@@ -608,9 +618,9 @@ contains
 
       net_magnetization = 0.d0
       do i = 1, naucell
-         net_magnetization = net_magnetization + [ cos(anglesphi(i))*sin(anglestheta(i))*Si(i), sin(anglesphi(i))*sin(anglestheta(i))*Si(i), cos(anglestheta(i))*Si(i) ]
+         net_magnetization = net_magnetization + [ cos(anglesphi(i))*sin(anglestheta(i))*Si(i), sin(anglesphi(i))*sin(anglestheta(i))*Si(i), cos(anglestheta(i))*Si(i) ] / ( naucell * (mu_s_array(i)/gamma) )
       end do
-      net_magnetization = net_magnetization/( naucell * (mu_s/gamma) )
+      ! net_magnetization = net_magnetization/( naucell * (mu_s/gamma) )
       print "(a,3F22.16)", " Net magnetization / ( naucell * (mu_s/gamma) ) ", net_magnetization
 
       ! net_magnetization = net_magnetization/naucell
@@ -887,10 +897,6 @@ contains
                HPmatrixj = HPbase
                HPmatrixj(3,3) = sqrt(ctwo/Si(l2))
                HPmatrixj = sqrt(Si(l2)/2.d0)*HPmatrixj
-               
-               HPmatrixj_aux = HPbase
-               HPmatrixj_aux(3,3) = sqrt(ctwo/Si_aux(l2))
-               HPmatrixj_aux = sqrt(Si_aux(l2)/2.d0)*HPmatrixj_aux
 
                do j = 1, ncell 
                   !        Position of the second atom         Position of the first atom 
@@ -942,7 +948,8 @@ contains
 
                         !Test to see if the current pair of atoms are at n.n distance
                         if( abs(norm_r0j - nndist) < zero_toler .and. norm_r0j > zero_toler ) then
-                           Jnn =  all_Jnn(i) * J_D_scaling * gamma**2/(mu_s**2)
+                           ! Here l1 and l2 are indexing starting from 1
+                           Jnn =  all_Jnn(i) * J_D_scaling * gamma**2/(mu_s_array(l1)*mu_s_array(l2))
 
                            Jx = Jnn; Jy = Jnn; Jz = Jnn
                            Dx = 0.d0; Dy = 0.d0; Dz = 0.d0
@@ -988,8 +995,7 @@ contains
 
                   if( j==origcell .and. l1==l2 ) then
                      hmagvec(l2,:) = matmul( hmag(:), Rotmatj )
-                     if(.not. Tneel) hmagvec(l2,:) = matmul( hmagvec(l2,:), HPmatrixj_aux )
-                     ! if(.not. Tneel) hmagvec(l2,:) = matmul( hmagvec(l2,:), HPmatrixj )
+                     if(.not. Tneel) hmagvec(l2,:) = matmul( hmagvec(l2,:), HPmatrixj )
                   end if
 
                   J0j(l1,j,l2,:,:) = Jtemp 
@@ -1067,10 +1073,6 @@ contains
             HPmatrixj = HPbase
             HPmatrixj(3,3) = sqrt(ctwo/Si(l2))
             HPmatrixj = sqrt(Si(l2)/2.d0)*HPmatrixj
-
-            HPmatrixj_aux = HPbase
-            HPmatrixj_aux(3,3) = sqrt(ctwo/Si_aux(l2))
-            HPmatrixj_aux = sqrt(Si_aux(l2)/2.d0)*HPmatrixj_aux
             
             Jtemp(1,1) = 2.0d0*(anisotropy_vecs(l1,1))
             Jtemp(2,2) = 2.0d0*(anisotropy_vecs(l1,2))
@@ -1080,8 +1082,7 @@ contains
             ! Jtemp(3,3) = 2.0d0*(kaniunitvec(3) + kaniunitvec2(3))
             
             hmagvec(l2,:) = matmul( hmag(:), Rotmatj )
-            if( .not. Tneel ) hmagvec(l2,:) = matmul( hmagvec(l2,:), HPmatrixj_aux )
-            ! if( .not. Tneel ) hmagvec(l2,:) = matmul( hmagvec(l2,:), HPmatrixj )
+            if( .not. Tneel ) hmagvec(l2,:) = matmul( hmagvec(l2,:), HPmatrixj )
 
             J0j(l1,j,l2,:,:) = Jtemp
          end do
