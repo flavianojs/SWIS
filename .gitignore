@@ -4,4 +4,4 @@
 *.mod
 *_genmod*
 *DS_Store*
-
+*.vscode*
