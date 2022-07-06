@@ -388,9 +388,14 @@ contains
       hmag(:) = hmagunitvec * (muB * hm0) * gamma
 
       Jx=Jnn; Jy=Jnn; Jz=Jnn
-      big_a1 = a1 * latcons * n_basis_cells(1)
-      big_a2 = a2 * latcons * n_basis_cells(2)
-      big_a3 = a3 * latcons * n_basis_cells(3)
+
+      a1 = a1*latcons
+      a2 = a2*latcons
+      a3 = a3*latcons
+
+      big_a1 = a1 * n_basis_cells(1)
+      big_a2 = a2 * n_basis_cells(2)
+      big_a3 = a3 * n_basis_cells(3)
 
       big_a1_norm = norm2( big_a1 * (ncellpdim-1) )
       big_a2_norm = norm2( big_a2 * (ncellpdim-1) )
@@ -1513,8 +1518,8 @@ contains
    end subroutine getriddegeneracy
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   ! subroutine subunfolding(i,eigenvalues,eigenvector,spectra)
 !$ subroutine subunfolding(i,eigenvalues,eigenvector,spectra,lck)
+   ! subroutine subunfolding(i,eigenvalues,eigenvector,spectra)
 !$    use omp_lib
       implicit none
       integer, intent(in) :: i
@@ -1621,8 +1626,7 @@ contains
                diff = basis(nu,:) - basis(mu,:)
                N_mu_nu = 0.d0
                do r = 1, naucell
-                  ! N_mu_nu = N_mu_nu + delta(omega-eigenvalues(r)) * (eigenvector(r,mu)) * conjg(eigenvector(r,nu))
-                  ! N_mu_nu = N_mu_nu + delta(omega-eigenvalues(r)) * (eigenvector(1,1,mu,r)) * conjg(eigenvector(1,1,nu,r))
+                  ! N_mu_nu = N_mu_nu + delta(omega-eigenvalues(r),eigenvalues(r)) * (eigenvector(1,1,mu,r)) * conjg(eigenvector(1,1,nu,r))
 
                   N_mu_nu = N_mu_nu + delta(omega-eigenvalues(r), eigenvalues(r))  * ( &
                              Rotpm(mu,alpha,2) * Rotpm(nu,beta, 1) * eigenvector(2,1,nu,r ) * conjg(  eigenvector(2,1,mu,r ) ) + &
@@ -1631,7 +1635,7 @@ contains
                              Rotpm(mu,alpha,1) * Rotpm(nu,beta, 2) * eigenvector(1,1,nu,r ) * conjg(  eigenvector(1,1,mu,r ) )   &
                            )
 
-                  ! N_mu_nu = N_mu_nu + delta(omega-eigenvalues(r))  * ( &
+                  ! N_mu_nu = N_mu_nu + delta(omega-eigenvalues(r), eigenvalues(r))  * ( &
                   !            Rotpm(mu,alpha,1) * Rotpm(nu,beta, 1)  * eigenvector(2,2,mu,r ) * eigenvector(2,1,nu,r ) + &
                   !            Rotpm(mu,alpha,2) * Rotpm(nu,beta, 1)  * eigenvector(1,2,mu,r ) * eigenvector(2,1,nu,r ) + &
                   !            Rotpm(mu,alpha,1) * Rotpm(nu,beta, 2)  * eigenvector(2,2,mu,r ) * eigenvector(1,1,nu,r ) + &
