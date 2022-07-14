@@ -29,7 +29,7 @@ module mod_global
    real(kind=pc) :: Jnn=0.0d0, all_Jnn(20)=0.d0, all_nndist(20)=0.d0, Dnn=0.d0, kanis=0.d0, kanis2=0.d0, hm0=0.d0, muB=1.d0, interactions_cutoff_radius = 1.d6
    real(kind=pc) :: hmagunitvec(3), kaniunitvec(3) = [0.d0, 0.d0, 1.d0], kaniunitvec2(3) = [0.d0, 0.d0, 1.d0], J_D_scaling=0.123456789d0
    real(kind=pc) :: mu_s(1000)=0.123456789d0, gamma=1.d0 ! mag mom equals to gamma times the spin operator: mu_s = gamma * S
-   real(kind=pc) :: mu_s_vec(1000) = 0.123456789d0
+   real(kind=pc) :: mu_s_vec(1000) = 0.123456789d0, Si_aux=1.d0
 
    !Calculations to be performed
    logical :: Tneel=.false.
@@ -55,7 +55,7 @@ module mod_global
    !!!!!!!!!!!!!!!! Auto determined global variables !!!!!!!!!!!!!!!!!!!
    real(kind=pc) :: Jx, Jy, Jz, maxomega=0.123456789d0, minomega=0.123456789d0, eta=1.d-1 , rescalf=1.1d0, zero_toler=1.d-5
    real(kind=pc) :: Dx, Dy, Dz, hmag(3), bb(3,3), nndist=0.d0
-   real(kind=pc), allocatable :: r0j(:,:), anglesphi(:), anglestheta(:), Si(:), Si_aux(:), basis(:,:) , kpoints(:,:), dkpoints(:), symmpts(:,:), syptsMataux(:,:), syptsMat(:,:), Rotmat(:,:,:), Uweight(:), mu_s_vec_aux(:), mu_s_array(:), n_anisotropy_aux(:,:), n_anisotropy(:,:), anisotropy_vecs(:,:)
+   real(kind=pc), allocatable :: r0j(:,:), anglesphi(:), anglestheta(:), Si(:), basis(:,:) , kpoints(:,:), dkpoints(:), symmpts(:,:), syptsMataux(:,:), syptsMat(:,:), Rotmat(:,:,:), Uweight(:), mu_s_vec_aux(:), mu_s_array(:), n_anisotropy_aux(:,:), n_anisotropy(:,:), anisotropy_vecs(:,:)
    integer :: ninteraction_pairs, ncell !Number of unit cells
    integer :: origcell !The index of the origin cell
    integer :: num_anisotropies = 0
@@ -161,7 +161,7 @@ contains
          polarization1, polarization2, polarization3, &
       !===== inputing and controlling interactions =======================================
          Jnn, J_D_scaling, Dnn, nndist, all_Jnn, all_nndist, interactions_cutoff_radius, &
-         hm0, muB, hmagunitvec, &
+         hm0, muB, Si_aux, hmagunitvec, &
          kanis, kanis2, kaniunitvec, kaniunitvec2, &
          mu_s, gamma, mu_s_vec, &
       !===== logical var: turn on and off features =======================================
@@ -401,7 +401,7 @@ contains
       big_a2_norm = norm2( big_a2 * (ncellpdim-1) )
       big_a3_norm = norm2( big_a3 * (ncellpdim-1) )
 
-      allocate( anglesphi(naucell), anglestheta(naucell), Si(naucell), Si_aux(naucell), basis(naucell,3), Rotmat(naucell,3,3), Rotpm(naucell,3,3) )
+      allocate( anglesphi(naucell), anglestheta(naucell), Si(naucell), basis(naucell,3), Rotmat(naucell,3,3), Rotpm(naucell,3,3) )
       
       !To calculate the k path where the dispersion will be calculated
       dim = sum(dims)
@@ -456,9 +456,9 @@ contains
             !In the 'spirit' mode, the spin orientation are read in cartesian coordinates.
             read(unit=90, fmt=*) Sx, Sy, Sz
 
-            Sx = Sx * (mu_s_array(i)/gamma)
-            Sy = Sy * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
-            Sz = Sz * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
+            Sx = Sx * Si_aux * (mu_s_array(i)/gamma) ! Si_aux was added as a way to rescale the Spin directly without affecting the interactions like mu does
+            Sy = Sy * Si_aux * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
+            Sz = Sz * Si_aux * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
             Si(i) = norm2([Sx, Sy, Sz])
             anglestheta(i) = acos( Sz/Si(i))
 
@@ -1242,7 +1242,7 @@ contains
       print "(2(a,f5.2),a)", " polarization2 = ", polarization2(1), "d0   ", polarization2(2), "d0,"
       print "(2(a,f5.2),a)", " polarization3 = ", polarization3(1), "d0   ", polarization3(2), "d0,"
       print *
-      print "(4(a,f4.1),a)", " Jnn =", Jnn, "d0, Dnn =", Dnn, "d0, kanis =", kanis, "d0, hm0 =", hm0, "d0,"
+      print "(4(a,f5.2),a)", " Jnn =", Jnn, "d0, Dnn =", Dnn, "d0, kanis =", kanis, "d0, hm0 =", hm0, "d0,"
       print "(3(a,f5.2),a)", " hmagunitvec = ",hmagunitvec(1), "d0 ",hmagunitvec(2), "d0 ",hmagunitvec(3), "d0,"
       print *
       print "(a)", " syptsMat = "
