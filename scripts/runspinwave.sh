@@ -180,6 +180,11 @@ done
       cd ~/Dropbox/scripts/dispersion-program
       make $rule $platform $debug $filename $verbose | tee compilation_log.dat
 
+        if grep failed compilation_log.dat
+        then
+            exit
+        fi
+
       line=$(head -n 1 compilation_log.dat)
       rm compilation_log.dat
       cd - >/dev/null #not shows the path when going back to the working folder
@@ -237,7 +242,7 @@ done
 
          #if the program has run successfully, make the copying and backups 
          if [ "$?" -eq "0" ]; then
-            mv precession_$XX.dat disp_analy_$XX.dat disp_unfol_$XX.dat  dispersion_$XX.dat latticExt_$XX.dat kpath_$XX.dat ine_intensities_$XX.dat outputfiles/
+                mv precession_$XX.dat disp_analy_$XX.dat disp_unfol_$XX.dat dispersion_$XX.dat dispersion_imag_$XX.dat latticExt_$XX.dat kpath_$XX.dat ine_intensities_$XX.dat outputfiles/
 
             #Copying files to be check for modifications on the next run
             for file in "${files_to_check[@]}"
@@ -271,7 +276,7 @@ done
 
          if [ "$?" -eq "0" ]; then
             if [ $host == 'theospc47' ] ; then
-                  # xdg-open $outputpng
+                  xdg-open $outputpng
                   :
             else
                   open $outputpng
@@ -292,9 +297,6 @@ done
       echo
       echo "Plotting dispersion ..."
 
-      # gnuscript="disp_unfol_multi.gnu"
-      
-
       maxomega=$(grep "maxomega" inputcard_$XX.inp | awk '{print $3}' | cut -d ',' -f 1)
       minomega=$(grep "minomega" inputcard_$XX.inp | awk '{print $6}' | cut -d ',' -f 1)
 
@@ -305,7 +307,7 @@ done
 
          if [ $host == 'theospc47' ] ; then
                xdg-open disp_unfolpY_$XX.png
-               # :
+               :
          else
                open disp_unfolpY_$XX.png
                # open disp_unfolp1_$XX.png
