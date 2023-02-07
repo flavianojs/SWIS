@@ -77,6 +77,7 @@ FC = ifort
 #  Libraries                                       #
 ####################################################
 LLIBS =-mkl
+# LLIBS =-qmkl
 
 ####################################################
 #  Flags                                           #
@@ -307,9 +308,9 @@ $(OBJDIR)/%.o $(OBJDIR)/%.mod: $(SRCDIR)/%.f90
 ####################################################
 # Dependencies                                     #
 ####################################################
-$(OBJDIR)/%.dep: $(SRCDIR)/%.f90 f90_mod_deps.py
-	@echo Building dependency of file $(addprefix $(SRCDIR)/,$(notdir $<))
-	@./f90_mod_deps.py -o $@ -d "(mod_.*)" -D "$(OBJDIR)/\1.mod" -m "(.*)" -M "$(OBJDIR)/\1.mod" -O "$(OBJDIR)/\1.o" $<
+# $(OBJDIR)/%.dep: $(SRCDIR)/%.f90 f90_mod_deps.py
+# 	@echo Building dependency of file $(addprefix $(SRCDIR)/,$(notdir $<))
+# 	@./f90_mod_deps.py -o $@ -d "(mod_.*)" -D "$(OBJDIR)/\1.mod" -m "(.*)" -M "$(OBJDIR)/\1.mod" -O "$(OBJDIR)/\1.o" $<
 
 ifeq ($(filter $(MAKECMDGOALS),clean cleanall),)
 -include $(DEP)

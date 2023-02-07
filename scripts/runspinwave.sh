@@ -158,6 +158,8 @@ done
 
             #if the program has run successfully, make the copying and backups 
             if [ "$?" -eq "0" ]; then
+                echo -e Final spin structure: $spirit_final_state
+ 
                 #Copying files to be check for modifications on the next run
                 for file in "${files_to_check[@]}"
                 do
