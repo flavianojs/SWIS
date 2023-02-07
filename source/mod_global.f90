@@ -405,11 +405,13 @@ contains
       
       !To calculate the k path where the dispersion will be calculated
       dim = sum(dims)
+      if( norm2(a1)<zero_toler .or. norm2(a2)<zero_toler .or. norm2(a3)<zero_toler ) stop("Please make sure that none of the primitive vectors, a1, a2, and a3 are null in the 'inputcard_XX.inp'. Stopping.")
       amat(1,:) = a1 !/latcons*n_basis_cells(1)
       amat(2,:) = a2 !/latcons*n_basis_cells(2)
       amat(3,:) = a3 !/latcons*n_basis_cells(3)
       bmat = 0.d0 !This is important to initialize the part of the bmat matrix that wont be initialized on the next line
-      bmat(1:dim,1:dim) = 2.d0*pi* transpose(inv(amat(1:dim,1:dim)))
+      bmat = 2.d0*pi* transpose(inv(amat))
+      ! bmat(1:dim,1:dim) = 2.d0*pi* transpose(inv(amat(1:dim,1:dim)))
 
       b1 = bmat(1,:)!*norm2(a1)
       b2 = bmat(2,:)!*norm2(a2)
