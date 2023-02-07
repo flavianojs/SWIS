@@ -1826,10 +1826,10 @@ contains
       delta = (eta/pi) / (omega**2 + eta**2) 
    end function
 
-   subroutine outputdata(disp_matrix,spectra,ine_intensities,expected_valueS,rightevector,evalues)
+   subroutine outputdata(disp_matrix,disp_imag_matrix,spectra,ine_intensities,expected_valueS,rightevector,evalues)
       !Storage making
       implicit none
-      real(kind=pc), intent(in) :: disp_matrix(effnkpt,twonaucell), spectra(effnkpt,nptomega,13), ine_intensities(effnkpt,naucell,13)
+      real(kind=pc), intent(in) :: disp_matrix(effnkpt,twonaucell), disp_imag_matrix(effnkpt,twonaucell), spectra(effnkpt,nptomega,13), ine_intensities(effnkpt,naucell,13)
       complex(kind=pc), intent(in) :: rightevector(effnkpt,twonaucell,twonaucell), evalues(effnkpt,twonaucell), expected_valueS(effnkpt,naucell,3)
       integer :: i, j, counter, m, n
       real(kind=pc) :: k(3), prevk(3), path, units=2.d0*pi/1.d0, spectra_aux(13), disp_matrix_aux(twonaucell), Re_expected_valueS(3), Im_expected_valueS(3)
@@ -1842,6 +1842,9 @@ contains
       !Storage file openning
       formt="dispersion_"//trim(suffix)//".dat"
       open( unit=90, file=formt )
+
+      formt="dispersion_imag_"//trim(suffix)//".dat"
+      open( unit=94, file=formt )
 
       formt="disp_analy_"//trim(suffix)//".dat"
       open( unit=91, file=formt )
@@ -1881,6 +1884,8 @@ contains
             !File "dispersion_**.dat" will contain the result via the numberical solution
             disp_matrix_aux = disp_matrix(i,:)
             write( unit=90, fmt=formt ) path/units, disp_matrix_aux
+            disp_matrix_aux = disp_imag_matrix(i,:)
+            write( unit=94, fmt=formt ) path/units, disp_matrix_aux
             
             !File "dispersion_analytics.dat" contains the analytical solution
             if(analytics) write( unit=91, fmt=formt2) path/units, ((real(omega(k+m*b1+n*b2)),m=-ncpdim,ncpdim),n=-ncpdim,ncpdim)

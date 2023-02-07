@@ -15,7 +15,7 @@ program dispersion
    complex(kind=pc), allocatable :: work(:) !work space for the diagonalization routine.
    double precision, allocatable :: rwork(:), rwork2(:) !work space for the diagonalization routine.
    logical, allocatable :: bwork(:) !work space for the diagonalization routine.
-   real(kind=pc), allocatable :: spectra(:,:,:), spectra_aux(:,:), ine_intensities(:,:,:), ine_intensities_aux(:,:), disp_matrix(:,:)
+   real(kind=pc), allocatable :: spectra(:,:,:), spectra_aux(:,:), ine_intensities(:,:,:), ine_intensities_aux(:,:), disp_matrix(:,:), disp_imag_matrix(:,:)
    complex(kind=pc), allocatable :: expected_valueS(:,:,:), expected_valueS_aux(:,:)
    character(len=70) :: formt
    complex(kind=pc) :: number
@@ -43,7 +43,7 @@ program dispersion
    !Loop over k points
 !$omp parallel default(none) &
 !$omp& private(mythread,i,k,nodiagonal,diagonal,evalues,leftevector,rightevector,work,rwork,rwork2,info,m,j,halfevalues,spectra_aux,ine_intensities_aux,expected_valueS_aux,halfevector,evectorUnfol,formt,number,summation,bwork,SDIM) &
-!$omp& shared(nthreads,lck,effnkpt,kpoints,Dmatrix,twonaucell,naucell,calc_occup,mode,unfolding,maxomega,rescalf,eta,maxomegaOK,spectra,ine_intensities,expected_valueS,disp_matrix,rightevectorTOT,evaluesTOT,zero_toler,g,SELECT,nptomega,Tneel)
+!$omp& shared(nthreads,lck,effnkpt,kpoints,Dmatrix,twonaucell,naucell,calc_occup,mode,unfolding,maxomega,rescalf,eta,maxomegaOK,spectra,ine_intensities,expected_valueS,disp_matrix,disp_imag_matrix,rightevectorTOT,evaluesTOT,zero_toler,g,SELECT,nptomega,Tneel)
 !$ mythread = omp_get_thread_num()
 !$ if(mythread.eq.0) then
 !$    nthreads = omp_get_num_threads()
@@ -106,6 +106,7 @@ program dispersion
 
       !Dispersion not unfolded
       disp_matrix(i,:) = dble(evalues) + aimag(evalues)
+      disp_imag_matrix(i,:) = aimag(evalues)
 
       !For the precession visualization
       rightevectorTOT(i,:,:) = rightevector
@@ -128,7 +129,7 @@ program dispersion
 !$omp end parallel
 
    !Storage making
-   call outputdata( disp_matrix, spectra, ine_intensities, expected_valueS, rightevectorTOT, evaluesTOT )
+   call outputdata( disp_matrix, disp_imag_matrix, spectra, ine_intensities, expected_valueS, rightevectorTOT, evaluesTOT )
 
    !Display the input parameters
    call printinginput()
