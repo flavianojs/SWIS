@@ -454,11 +454,14 @@ contains
          !Reading the spin configuration: spin orientation
          do i = 1, naucell 
             !In the 'spirit' mode, the spin orientation are read in cartesian coordinates.
-            read(unit=90, fmt=*) Sx, Sy, Sz
+            read(unit=90, fmt=*, iostat=ierr) Sx_aux, Sy_aux, Sz_aux
+            if(is_iostat_end(ierr)) then
+               print "(a,i3,a,i3,a)", ' WARNING: too few spin vectors were found in the spin configuration file (.ovf) . Expected = ',naucell,' Found = ',i-1,'. The last vector will be copies to the remaining sites. Make sure this is what you want.'
+            end if
 
-            Sx = Sx * Si_aux * (mu_s_array(i)/gamma) ! Si_aux was added as a way to rescale the Spin directly without affecting the interactions like mu does
-            Sy = Sy * Si_aux * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
-            Sz = Sz * Si_aux * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
+            Sx = Sx_aux * Si_aux * (mu_s_array(i)/gamma) ! Si_aux was added as a way to rescale the Spin directly without affecting the interactions like mu does
+            Sy = Sy_aux * Si_aux * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
+            Sz = Sz_aux * Si_aux * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
             Si(i) = norm2([Sx, Sy, Sz])
             anglestheta(i) = acos( Sz/Si(i))
 
