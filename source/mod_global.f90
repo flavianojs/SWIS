@@ -1832,7 +1832,7 @@ contains
       real(kind=pc), intent(in) :: disp_matrix(effnkpt,twonaucell), disp_imag_matrix(effnkpt,twonaucell), spectra(effnkpt,nptomega,13), ine_intensities(effnkpt,naucell,13)
       complex(kind=pc), intent(in) :: rightevector(effnkpt,twonaucell,twonaucell), evalues(effnkpt,twonaucell), expected_valueS(effnkpt,naucell,3)
       integer :: i, j, counter, m, n
-      real(kind=pc) :: k(3), prevk(3), path, units=2.d0*pi/1.d0, spectra_aux(13), disp_matrix_aux(twonaucell), Re_expected_valueS(3), Im_expected_valueS(3)
+      real(kind=pc) :: k(3), prevk(3), path, units=2.d0*pi/1.d0, spectra_aux(13), disp_matrix_aux(twonaucell), Re_expected_valueS(3), Im_expected_valueS(3), larger
       character(len=70) :: formt, formt2, suffix
 
       i=index(inputcardname,"_")+1
@@ -1966,12 +1966,18 @@ contains
       write(333, fmt=*) b2 
       write(333, fmt=*) "# ^ b2"
 
+      if( norm2(b1) > norm2(b1) ) then
+         larger = norm2(b1)
+      else
+         larger = norm2(b2)
+      end if
+
       do i=-1,1; do j=-1,1
          k = (b1*i + b2*j)
-         if(norm2(k) <= norm2(b1)*1.2 .and. norm2(k) <= norm2(b2)*1.2 ) then
+         if( norm2(k) <= larger*1.2 ) then
             prevk = [-k(2), k(1), k(3)]
-            write(333, fmt=*) 0.5*k - 0.5*prevk   
-            write(333, fmt=*) 0.5*k + 0.5*prevk   
+            write(333, fmt=*) 0.5*k - 0.5*larger*prevk/norm2(prevk)   
+            write(333, fmt=*) 0.5*k + 0.5*larger*prevk/norm2(prevk)   
             write(333, fmt=*) "# ^ edge of the 1st BZ"
          end if
       end do; end do
