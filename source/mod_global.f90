@@ -1218,7 +1218,7 @@ contains
       print *
       print "(a)", "High symmetry point path location:"
       print *, " Path      | Correspondent frequency value"
-      do i = 1, npath
+      do i = 1, npath+1
          write( unit=*, fmt=formt) real(highsymm(i,1)),  ( real(highsymm(i,naucell+1-j)), j=0, naucellaux)  
       end do
 
@@ -1908,7 +1908,8 @@ contains
                   highsymm(counter,:) = [path/units, disp_matrix(i,:)]
                end if
             end do
-            if( i == effnkpt ) then
+            ! if( i == effnkpt ) then
+            if( i == 1 ) then
                counter = counter + 1
                highsymm(counter,:) = [path/units, disp_matrix(i,:)]
             end if
