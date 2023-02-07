@@ -105,6 +105,41 @@ contains
       end if
    end function inv
 
+   subroutine decomposition(position, l1, da, db, dc)
+   implicit none
+   real(kind=pc), intent(in) :: position(3)
+   real(kind=pc) :: da_aux, db_aux, dc_aux, new_basis(3)
+   integer, intent(out) :: l1, da, db, dc
+   integer :: i
+
+   da_aux = dot_product(big_a3, cross(big_a2, position)) / dot_product(big_a3, cross(big_a2, big_a1   ))
+   db_aux = dot_product(big_a3, cross(big_a1, position)) / dot_product(big_a3, cross(big_a1, big_a2   ))
+   dc_aux = dot_product(big_a1, cross(big_a2, position)) / dot_product(big_a3, cross(big_a1, big_a2   ))
+   ! print *, 'da_aux', da_aux
+   da = int(floor( da_aux ))
+   db = int(floor( db_aux ))
+   dc = int(floor( dc_aux ))
+   ! print *, 'da', da_aux
+   if( abs(da_aux-nint(da_aux)) < 0.01 ) da = nint( da_aux )
+   if( abs(db_aux-nint(db_aux)) < 0.01 ) db = nint( db_aux )
+   if( abs(dc_aux-nint(dc_aux)) < 0.01 ) dc = nint( dc_aux )
+
+   ! print *, 'da db dc', da, db, dc
+
+   new_basis = position - ( da*big_a1 + db*big_a2 + dc*big_a3 )
+
+   l1 = -1
+   do i = 1, naucell
+      if( norm2( new_basis - basis(i,:) ) < zero_toler ) then
+         l1 = i-1
+         exit
+      end if
+   end do
+
+   if( l1 == -1 ) stop("Subroutine 'decomposition' did not identify an atom in the basis with the required position.")
+
+   end subroutine decomposition
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine invers(matriz)
       implicit none
@@ -137,10 +172,10 @@ contains
       implicit none
       real(kind=pc), parameter :: c0(3) = [0.123456789, 0.123456789, 0.123456789]
 
-      integer :: i,j,k, dim, counter, reading_status, d1, d2, d3, l1, l2, ierr, num_atoms_small_basis, polariz
-      real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization(3), Sx, Sy, Sz, pos_norm, big_a1_norm, big_a2_norm, big_a3_norm, Rotmat_aux(3,3), polarizations(3,2)
+      integer :: i,j,k, dim, counter, reading_status, d1, d2, d3, l1, l2, ierr, num_atoms_small_basis, polariz, da, db, dc, new_l1, new_l2
+      real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization(3), Sx, Sy, Sz, Sx_aux, Sy_aux, Sz_aux, pos_norm, big_a1_norm, big_a2_norm, big_a3_norm, Rotmat_aux(3,3), polarizations(3,2)
       real(kind=pc), allocatable :: unit_cell_basis(:,:)
-      real(kind=pc) :: c1(3)=c0, c2(3)=c0, c3(3)=c0, position(3)
+      real(kind=pc) :: c1(3)=c0, c2(3)=c0, c3(3)=c0, position(3), displacement(3), pos_atom1(3), pos_atom2(3)
       complex(kind=pc) :: HP(3,3), HPinv(3,3), aux(3,3)
       character(len=1000) :: read_in_data, lines, spirit_input = "", pairfile
       character(len=100) :: word
@@ -187,45 +222,6 @@ contains
       read(101, nml=input)
       !write(*,nml=input)
 
-      if(neutron_factor) then
-         print "(a)", " Neutron scattering polarization factor is ON."
-      end if
-      if(circular_cartesian_convertion_factor) then
-         print "(a)", " Sum convertion from Circular to Cartesian on inelastic cross section is ON."
-      end if
-
-      !Reading the magnetic moment vector
-      allocate( mu_s_array(naucell) )
-
-      ! Search for the location of the first element equal to 0.123456789d0, 
-      i = FINDLOC(mu_s, 0.123456789d0, 1)
-
-      ! If only one mag mom was given, use it for all sites
-      if( i==2 ) then
-         mu_s_array = mu_s(1)
-      ! If no mag mom was inputed
-      else if( i==1 ) then
-         j = FINDLOC(mu_s_vec, 0.123456789d0, 1)
-         if( j==naucell+1 ) then
-            mu_s_array = mu_s_vec(1:naucell)
-         ! If no mu_s nor mu_s_vec were inputted
-         else if( j==1 ) then
-            print *, " ATTENTION! No magnetic momement 'mu_s' was given. Setting mu_s = 1 which corresponds to spin 1/2 to all sites."
-            mu_s_array = 1.d0
-         else
-            stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
-         end if
-      ! If number of mag mom is not equal to the number of sites
-      else if( i .NE. naucell+1 ) then
-         stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
-      else
-         mu_s_array = mu_s(1:naucell)
-      end if
-      print "(a,1000f8.4)", " Mag moms= ", mu_s_array
-
-      !If to compute spectrum of a energy cut, we use a kpoint mesh instead of a kpoint path.
-      if( constant_energy_plot ) kpoint_mesh = .true.
-
       !Determining the number of nn interactions inputed
       do i=1, 20
          if( abs(all_nndist(i)) < zero_toler ) then
@@ -264,7 +260,7 @@ contains
             !______________________________________________________
             if( word == "n_basis_cells") then
                read(lines, *) word, n_basis_cells
-               naucell = n_basis_cells(1)*n_basis_cells(2)*n_basis_cells(3)
+               naucell = n_basis_cells(1)*n_basis_cells(2)*n_basis_cells(3)*num_atoms_small_basis
                print "(a,3i4)", " n_basis_cells ", n_basis_cells
                print "(a,3i4)", " naucell ", naucell
             end if
@@ -294,6 +290,45 @@ contains
          print "(a)", "END Reading SPIRIT inputcard."
          print *
       end if
+
+      if(neutron_factor) then
+         print "(a)", " Neutron scattering polarization factor is ON."
+      end if
+      if(circular_cartesian_convertion_factor) then
+         print "(a)", " Sum convertion from Circular to Cartesian on inelastic cross section is ON."
+      end if
+
+      !Reading the magnetic moment vector
+      allocate( mu_s_array(naucell) )
+
+      ! Search for the location of the first element equal to 0.123456789d0, 
+      i = FINDLOC(mu_s, 0.123456789d0, 1)
+
+      ! If only one mag mom was given, use it for all sites
+      if( i==2 ) then
+         mu_s_array = mu_s(1)
+      ! If no mag mom was inputed
+      else if( i==1 ) then
+         j = FINDLOC(mu_s_vec, 0.123456789d0, 1)
+         if( j==naucell+1 ) then
+            mu_s_array = mu_s_vec(1:naucell)
+         ! If no mu_s nor mu_s_vec were inputted
+         else if( j==1 ) then
+            print *, " ATTENTION! No magnetic momement 'mu_s' was given. Setting mu_s = 1 which corresponds to spin 1/2 to all sites."
+            mu_s_array = 1.d0
+         else
+            stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
+         end if
+      ! If number of mag mom is not equal to the number of sites
+      else if( i .NE. naucell+1 ) then
+         stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
+      else
+         mu_s_array = mu_s(1:naucell)
+      end if
+      print "(a,1000f8.4)", " Mag moms= ", mu_s_array
+
+      !If to compute spectrum of a energy cut, we use a kpoint mesh instead of a kpoint path.
+      if( constant_energy_plot ) kpoint_mesh = .true.
 
       twonaucell = 2*naucell
       allocate( syptsMataux(3,max_num_kpt_path+2), g(twonaucell,twonaucell), Uweight(naucell), n_anisotropy_aux(5,max_num_ani) )
@@ -477,15 +512,21 @@ contains
 
          if( spirit_input_given ) then
             counter = 0
-            do k = 1, n_basis_cells(3)
-               do j = 1, n_basis_cells(2)
-                  do i = 1, n_basis_cells(1)
-                     counter = counter + 1
-                     basis(counter,:) = (i*a1 + j*a2 + k*a3)
+            do k = 0, n_basis_cells(3) -1
+               do j = 0, n_basis_cells(2) -1
+                  do i = 0, n_basis_cells(1) -1
+                     do l1 = 1, num_atoms_small_basis  !
+                        counter = counter + 1
+                        basis(counter,:) = (i*a1 + j*a2 + k*a3) + unit_cell_basis(l1,1)*a1 + unit_cell_basis(l1,2)*a2 + unit_cell_basis(l1,3)*a3
+                     end do
                   end do 
                end do
             end do
-            print *, "Position of each spin in the simulation box computed."
+            print *, "Position of each spin in the simulation box computed:"
+            do i = 1, 10
+               if( i > counter ) exit 
+               print *, basis(i,:)
+            end do
          else 
             !Reading the atom positions. In the 'spirit' mode, the atom positions are read from a separate file
             inquire(file=latticefile, exist=file_exists)
@@ -562,55 +603,121 @@ contains
                if( l1 == 0 ) badindexing = .false.
                if( l1 == naucell - 1 ) atoms_distinguisable = .true. !Test if the interaction for the last atom was given, then it assumes that the atom are considered distinguisible, and that the set of interaction for each atom is given
 
-               counter = counter + 1
-               if(counter>100000) stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
-
                if( spirit_input_given ) then
-                  positions(counter,:) = d1*a1 + d2*a2 + d3*a3
-               else
+                  atoms_distinguisable = .true.
+
+                  do k = 0, n_basis_cells(3) - 1
+                     do j = 0, n_basis_cells(2) - 1
+                        do i = 0, n_basis_cells(1) - 1
+
+                           displacement = i*a1 + j*a2 + k*a3
+                           pos_atom1 = unit_cell_basis(l1+1, 1)*a1 &
+                                     + unit_cell_basis(l1+1, 2)*a2 &
+                                     + unit_cell_basis(l1+1, 3)*a3 + displacement
+                           pos_atom2 = unit_cell_basis(l2+1, 1)*a1 &
+                                     + unit_cell_basis(l2+1, 2)*a2 &
+                                     + unit_cell_basis(l2+1, 3)*a3 &
+                                     + d1*a1 + d2*a2 + d3*a3 + displacement
+
+                           ! print "(a,3f10.4)", 'displacem', displacement
+                           ! print "(a,3f10.4)", 'pos_atom1', pos_atom1
+                           ! print "(a,3f10.4)", 'pos_atom2', pos_atom2
+                           ! print "('original  ',2i3,3i4)",       l1, l2, d1, d2, d3
+                           call decomposition(pos_atom1, new_l1, da, db, dc)
+                           ! print "('new atom1 ',1i3,'   ',3i4)", new_l1,     da, db, dc
+                           call decomposition(pos_atom2, new_l2, da, db, dc)
+                           ! print "('new atom2 ','   ',1i3,3i4)",     new_l2, da, db, dc
+
+                           counter = counter + 1
+                           if(counter>100000) stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
+
+                           positions(counter,:) = pos_atom2 - pos_atom1
+                           ijda_db_dc(counter,:) = [ new_l1+1, new_l2+1, da, db, dc ] !+1 in the first two elements because in this program, the atom indices start counting at 1 and not zero (like in the Spirit-code)
+
+                           pos_norm = norm2(positions(counter,:))
+
+                           do
+                              if( ((pos_norm+1                 > big_a1_norm) .or. (pos_norm+1                 > big_a2_norm)) .and. &
+                                 ((interactions_cutoff_radius > big_a1_norm) .or. (interactions_cutoff_radius > big_a2_norm)) ) then
+                                 ! stop "Cluster of interaction larger than simulation box. Please increase 'ncellpdim' in the inputcard_XX.inp. Stopping."
+                                 ncellpdim = ncellpdim+1
+                                 big_a1_norm = norm2( big_a1 * (ncellpdim-1) )
+                                 big_a2_norm = norm2( big_a2 * (ncellpdim-1) )
+                                 big_a3_norm = norm2( big_a3 * (ncellpdim-1) )
+                              else
+                                 exit
+                              end if
+                           end do
+
+                           if( counter == 1 ) print *, "Interactions pair positions:"
+                           if( counter <= 10 ) then
+                              position = positions(counter,:)
+                              ! print "(3f12.8,2i0)", position, ijda_db_dc(counter,:)
+                              print "(3f10.4,2i3,3i4)", position, ijda_db_dc(counter,:)
+                           end if  
+
+                           ! l1+1 because the index from the pair interaction files (same for spirit), starts indexing with zero
+                           DJvect(counter,:) = [Dx, Dy, Dz, Jnn] * J_D_scaling * gamma**2/(mu_s_array(l1+1)*mu_s_array(l2+1))
+
+                           if( Dnn .ne. 0.d0 ) then
+                              DJvect(counter,:) = [Dx*Dnn/norm2([Dx,Dy,Dz]), Dy*Dnn/norm2([Dx,Dy,Dz]), Dz*Dnn/norm2([Dx,Dy,Dz]), Jnn] * J_D_scaling * gamma**2/(mu_s_array(l1+1)*mu_s_array(l2+1))
+                           end if
+      
+
+                        end do 
+                     end do
+                  end do
+                  
+               else !if spirit input is not given 
+
+                  counter = counter + 1
+                  if(counter>100000) stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
+
                   if( c1c2c3set_given ) then
                      positions(counter,:) = d1*c1 + d2*c2 + d3*c3
                   else                        !          Position of second atom                     Position of the first
                      positions(counter,:) = ( basis(l2+1,:) + d1*big_a1 + d2*big_a2 + d3*big_a3 )    -  basis(l1+1,:)  
                      ijda_db_dc(counter,:) = [ l1+1, l2+1, d1, d2, d3 ] !+1 in the first two elements because in this program, the atom indices start counting at 1 and not zero (like in the Spirit-code)
                   end if
-               end if
 
-               pos_norm = norm2(positions(counter,:))
+                  pos_norm = norm2(positions(counter,:))
 
-               do
-                  if( ((pos_norm+1                 > big_a1_norm) .or. (pos_norm+1                 > big_a2_norm)) .and. &
-                      ((interactions_cutoff_radius > big_a1_norm) .or. (interactions_cutoff_radius > big_a2_norm)) ) then
-                      ! stop "Cluster of interaction larger than simulation box. Please increase 'ncellpdim' in the inputcard_XX.inp. Stopping."
-                     ncellpdim = ncellpdim+1
-                     big_a1_norm = norm2( big_a1 * (ncellpdim-1) )
-                     big_a2_norm = norm2( big_a2 * (ncellpdim-1) )
-                     big_a3_norm = norm2( big_a3 * (ncellpdim-1) )
-                  else
-                     exit
+                  do
+                     if( ((pos_norm+1                 > big_a1_norm) .or. (pos_norm+1                 > big_a2_norm)) .and. &
+                        ((interactions_cutoff_radius > big_a1_norm) .or. (interactions_cutoff_radius > big_a2_norm)) ) then
+                        ! stop "Cluster of interaction larger than simulation box. Please increase 'ncellpdim' in the inputcard_XX.inp. Stopping."
+                        ncellpdim = ncellpdim+1
+                        big_a1_norm = norm2( big_a1 * (ncellpdim-1) )
+                        big_a2_norm = norm2( big_a2 * (ncellpdim-1) )
+                        big_a3_norm = norm2( big_a3 * (ncellpdim-1) )
+                     else
+                        exit
+                     end if
+                  end do
+
+                  if( counter == 1 ) print *, "Interactions pair positions:"
+                  if( counter <= 10 ) then
+                     position = positions(counter,:)
+                     print "(3(f12.8))", position
+                  end if  
+
+                  ! l1+1 because the index from the pair interaction files (same for spirit), starts indexing with zero
+                  DJvect(counter,:) = [Dx, Dy, Dz, Jnn] * J_D_scaling * gamma**2/(mu_s_array(l1+1)*mu_s_array(l2+1))
+
+                  if( Dnn .ne. 0.d0 ) then
+                     DJvect(counter,:) = [Dx*Dnn/norm2([Dx,Dy,Dz]), Dy*Dnn/norm2([Dx,Dy,Dz]), Dz*Dnn/norm2([Dx,Dy,Dz]), Jnn] * J_D_scaling * gamma**2/(mu_s_array(l1+1)*mu_s_array(l2+1))
                   end if
-               end do
-
-               if( counter == 1 ) print *, "Interactions pair positions"
-               if( counter <= 10 .and. counter<= naucell ) then
-                  position = positions(counter,:)
-                  print "(3(f12.8))", position
-               end if  
-
-               ! l1+1 because the index from the pair interaction files (same for spirit), starts indexing with zero
-               DJvect(counter,:) = [Dx, Dy, Dz, Jnn] * J_D_scaling * gamma**2/(mu_s_array(l1+1)*mu_s_array(l2+1))
-
-               if( Dnn .ne. 0.d0 ) then
-                  DJvect(counter,:) = [Dx*Dnn/norm2([Dx,Dy,Dz]), Dy*Dnn/norm2([Dx,Dy,Dz]), Dz*Dnn/norm2([Dx,Dy,Dz]), Jnn] * J_D_scaling * gamma**2/(mu_s_array(l1+1)*mu_s_array(l2+1))
-               end if
+               end if ! if spirit_input_given
             end do
+            if( counter > 10 ) print "('    ...')"
             close(unit=92)
 
             print "(a, i0)", " ncellpdim = ", ncellpdim
 
             if( badindexing ) stop "Most probably your indexing is wrong in the interaction file. Basis atom index should start at zero. Stopping."
             if( atoms_distinguisable ) then
-               print "(a)", " Atoms are DIStinguisible, and a set of interaction for each atom should have been given."
+               print "(a)", " Atoms are DIStinguisible, and a set of interaction for each atom should have been given. If the spirit cfg file is ..."
+               print "(a)", "   ... passed and a simulation box is considered, it is ok to provide only the interaction for the primitive unit cell."
             else
                print "(a)", " Atoms are INDIStinguisible, and a set of interaction for the first atom only shoud have been given."
             end if            
