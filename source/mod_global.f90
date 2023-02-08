@@ -494,6 +494,7 @@ contains
             read(unit=90, fmt=*, iostat=ierr) Sx_aux, Sy_aux, Sz_aux
             if(is_iostat_end(ierr)) then
                print "(a,i3,a,i3,a)", ' WARNING: too few spin vectors were found in the spin configuration file (.ovf) . Expected = ',naucell,' Found = ',i-1,'. The last vector will be copies to the remaining sites. Make sure this is what you want.'
+               exit
             end if
 
             Sx = Sx_aux * Si_aux * (mu_s_array(i)/gamma) ! Si_aux was added as a way to rescale the Spin directly without affecting the interactions like mu does
