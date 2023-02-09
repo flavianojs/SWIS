@@ -713,12 +713,12 @@ contains
             DJvect = 0.d0
             do 
                read(unit=92, fmt="(a)", iostat=reading_status) read_in_data
-               if( reading_status < 0 ) exit
-               if( reading_status > 0 ) error stop "Sub initialization() error: On reading interaction pair file 'pairfile'. Stopping."
+               if( is_iostat_end(reading_status) ) exit
+               if( reading_status .ne. 0  ) error stop "Sub initialization() error: On reading interaction pair file 'pairfile'. Stopping."
                
                read( read_in_data, *) word
-               if( read_in_data(1:1) == "#" .or. trim(word) == "i" ) cycle
-
+               word = trim(word)
+               if( word == "#" .or. word == "i" ) cycle
                read( read_in_data, fmt=* , iostat=reading_status) l1, l2, d1, d2, d3, Dx, Dy, Dz, Jnn
 
                if( reading_status .ne. 0 ) cycle
