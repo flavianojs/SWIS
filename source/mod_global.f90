@@ -258,15 +258,6 @@ contains
             read(lines, *) word
 
             !______________________________________________________
-            if( word == "n_basis_cells") then
-               read(lines, *) word, n_basis_cells
-               naucell = n_basis_cells(1)*n_basis_cells(2)*n_basis_cells(3)*num_atoms_small_basis
-               print "(a,3i4)", " n_basis_cells ", n_basis_cells
-               print "(a,3i4)", " naucell ", naucell
-            end if
-            !-------------------------------------------------------
-
-            !______________________________________________________
             if( 0 < counter .and. counter <= num_atoms_small_basis ) then
                read(lines, *) basisaux
                unit_cell_basis(counter,:) = basisaux
@@ -345,28 +336,28 @@ contains
 
       else
 
-      ! If only one mag mom was given, use it for all sites
-      if( i==2 ) then
-         mu_s_array = mu_s(1)
-      ! If no mag mom was inputed
-      else if( i==1 ) then
-         j = FINDLOC(mu_s_vec, 0.123456789d0, 1)
-         if( j==naucell+1 ) then
-            mu_s_array = mu_s_vec(1:naucell)
-         ! If no mu_s nor mu_s_vec were inputted
-         else if( j==1 ) then
-            print *, " ATTENTION! No magnetic momement 'mu_s' was given. Setting mu_s = 1 which corresponds to spin 1/2 to all sites."
-            mu_s_array = 1.d0
-         else
+         ! If only one mag mom was given, use it for all sites
+         if( i==2 ) then
+            mu_s_array = mu_s(1)
+         ! If no mag mom was inputed
+         else if( i==1 ) then
+            j = FINDLOC(mu_s_vec, 0.123456789d0, 1)
+            if( j==naucell+1 ) then
+               mu_s_array = mu_s_vec(1:naucell)
+            ! If no mu_s nor mu_s_vec were inputted
+            else if( j==1 ) then
+               print *, " ATTENTION! No magnetic momement 'mu_s' was given. Setting mu_s = 1 which corresponds to spin 1/2 to all sites."
+               mu_s_array = 1.d0
+            else
+               stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
+            end if
+         ! If number of mag mom is not equal to the number of sites
+         else if( i .NE. naucell+1 ) then
             stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
+         else
+            mu_s_array = mu_s(1:naucell)
          end if
-      ! If number of mag mom is not equal to the number of sites
-      else if( i .NE. naucell+1 ) then
-         stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
-      else
-         mu_s_array = mu_s(1:naucell)
-      end if
-      print "(a,1000f8.4)", " Mag moms= ", mu_s_array
+         print "(a,1000f8.4)", " Mag moms= ", mu_s_array
 
       end if         
 
@@ -553,7 +544,7 @@ contains
             end if
 
          end do
-
+         
          !Reading or determining the positions of each atom in the basis. In the 'spirit' mode, the atom positions are read from a separate file
          if( spirit_input_given ) then
             counter = 0
