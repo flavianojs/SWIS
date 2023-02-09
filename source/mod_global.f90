@@ -586,7 +586,7 @@ contains
             end if
 
          else ! if spirit input is NOT given 
-            if( counter .ne. naucell ) error stop('Error: Number of spins read in the spin configuration file (possibly *.ovf) does not match the num. of atoms in the unit cell. Stopping.')
+            if( counter .ne. naucell ) error stop('Error: Number of spins read in the spin configuration file (possibly in *.ovf) does not match the num. of atoms in the unit cell. Stopping.')
 
             do i = 1, naucell
                Sx_aux = Sx_vec(i)
