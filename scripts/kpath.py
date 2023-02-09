@@ -19,7 +19,7 @@ plt.clf()
 axes = plt.gca()
 
 fileinput = "outputfiles/kpath_"+sys.argv[1]+".dat" # "outputfiles/kpath_XX.dat"
-print 'kpath input file:', fileinput
+print( 'kpath input file:', fileinput )
 file = open(fileinput)
 lines_input_file=file.readlines()
 
@@ -34,7 +34,7 @@ for line in lines_input_file :
    if data_str[0].startswith('#') :
       toplot = True
       counter += 1
-      # print "PLOT", counter
+      # print( "PLOT", counter )
       if counter == 1 :
          plt.plot(points_x, points_y, linewidth=1.5, color='black', linestyle='', marker='o', markersize=5, label='Reciprocal lattice' )
          box_lim = max(points_x)*1.1
@@ -58,7 +58,7 @@ for line in lines_input_file :
    else :
       points_x.append( float(data_str[0]) ) 
       points_y.append( float(data_str[1]) ) 
-      # if counter == 1: print points[-1]
+      # if counter == 1: print( points[-1] )
 
 axes.set_xlim([ -box_lim, box_lim ])
 axes.set_ylim([ -box_lim, box_lim ])
@@ -66,5 +66,5 @@ axes.set_ylim([ -box_lim, box_lim ])
 plt.legend()
 
 outfile = "kpath_"+sys.argv[1]+".png"
-print 'kpath output file:', outfile
+print( 'kpath output file:', outfile )
 plt.savefig(outfile)

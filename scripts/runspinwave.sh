@@ -34,7 +34,7 @@ if ! [ -f "$SWcode_executable" ]; then
 fi
 
 # For flaviano's MacBook Pro
-if [ $host == 'Flavianos-MacBook-Pro.local' ] || [ $host == 'tsf-452-wpa-4-009.epfl.ch' ] ; then
+if [ $host == 'Flavianos-MacBook-Pro.local' ] || [ $host == 'tsf-452-wpa-4-009.epfl.ch' ] || [ $host == 'Flavianos-MBP.psi.ch' ]; then
     source /opt/intel/bin/compilervars.sh intel64
     source /opt/intel/mkl/bin/mklvars.sh intel64
     export OMP_NUM_THREADS=8
@@ -247,6 +247,8 @@ done
                 mv precession_$XX.dat disp_analy_$XX.dat disp_unfol_$XX.dat dispersion_$XX.dat dispersion_imag_$XX.dat latticExt_$XX.dat kpath_$XX.dat ine_intensities_$XX.dat outputfiles/
 
             #Copying files to be check for modifications on the next run
+            echo
+            echo "Files tracked for changes:"
             for file in "${files_to_check[@]}"
             do
                echo $file
@@ -324,7 +326,7 @@ done
 
    #--- kpath -----------------------------------------------------
    if [ $kpath -eq 1 ] && $runsuccess ; then
-      python kpath.py outputfiles/kpath_$XX.dat $XX
+      python kpath.py $XX
       open kpath_$XX.png
       echo
       echo "Kpath plotted."
