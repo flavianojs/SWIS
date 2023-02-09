@@ -93,7 +93,7 @@ contains
       call DGETRF(n, n, Ainv, n, ipiv, info)
 
       if (info /= 0) then
-         stop 'Matrix is numerically singular!'
+         error stop 'Matrix is numerically singular!'
       end if
 
       ! DGETRI computes the inverse of a matrix using the LU factorization
@@ -101,7 +101,7 @@ contains
       call DGETRI(n, Ainv, n, ipiv, work, n, info)
 
       if (info /= 0) then
-         stop 'Matrix inversion failed!'
+         error stop 'Matrix inversion failed!'
       end if
    end function inv
 
@@ -161,7 +161,7 @@ contains
 
       if (info/=0) then
          write(*,*)'ifail=',info
-         stop 'Fudeu!!! Inversao da NAG foi pro caralho!'
+         error stop 'Fudeu!!! Inversao da NAG foi pro caralho!'
       end if
 
       return
@@ -216,7 +216,7 @@ contains
       else
          print "(3a)", " File: '", trim(inputcardname), "' does NOT exist. Stopping."
          print *
-         stop 
+         error stop 
       end if
 
       read(101, nml=input)
@@ -244,7 +244,7 @@ contains
          else
             print "(3a)", " File: '", trim(spirit_input), "' does NOT exist. Stopping."
             print *
-            stop 
+            error stop 
          end if
 
          flag1 = .false.
@@ -322,11 +322,11 @@ contains
                print *, " ATTENTION! No magnetic momement 'mu_s' was given. Setting mu_s = 1 which corresponds to spin 1/2 to all sites."
                mu_s_array = 1.d0
             else
-               stop " Number of mag. moms. does not match number of sites in the primitive unit cell. Check inputcard 'inputcard_XXX.inp'. Stopping."
+               error stop " Number of mag. moms. does not match number of sites in the primitive unit cell. Check inputcard 'inputcard_XXX.inp'. Stopping."
             end if
          ! If number of mag mom is not equal to the number of sites
          else if( i .NE. num_atoms_small_basis+1 ) then
-            stop " Number of mag. moms. does not match number of sites in the primitive unit cell. Check inputcard 'inputcard_XXX.inp'. Stopping."
+            error stop " Number of mag. moms. does not match number of sites in the primitive unit cell. Check inputcard 'inputcard_XXX.inp'. Stopping."
          else
             do k = 0, num_primitive_cells_in_sim_box - 1
                mu_s_array( 1 + (k*num_atoms_small_basis) : num_atoms_small_basis + (k*num_atoms_small_basis)) = mu_s( 1:num_atoms_small_basis )
@@ -348,11 +348,11 @@ contains
                print *, " ATTENTION! No magnetic momement 'mu_s' was given. Setting mu_s = 1 which corresponds to spin 1/2 to all sites."
                mu_s_array = 1.d0
             else
-               stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
+               error stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
             end if
          ! If number of mag mom is not equal to the number of sites
          else if( i .NE. naucell+1 ) then
-            stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
+            error stop " Number of mag. moms. does not match number of sites. Check inputcard 'inputcard_XXX.inp'. Stopping."
          else
             mu_s_array = mu_s(1:naucell)
          end if
@@ -380,7 +380,7 @@ contains
          end if
          if( i == max_num_kpt_path+2 ) then
             print *, "It is better that you make 'max_num_kpt_path' larger than", max_num_kpt_path, "Stopping."
-            stop
+            error stop
          end if
       end do
       allocate( syptsMat(npath+1,3) )
@@ -393,7 +393,7 @@ contains
          end if
          if( i == max_num_ani ) then
             print *, "It is better that you make 'max_num_ani' larger than", max_num_ani, "Stopping."
-            stop
+            error stop
          end if
       end do
       allocate( n_anisotropy(num_anisotropies,5) )
@@ -500,7 +500,7 @@ contains
       else
          print "(3a)", " File: '", trim(basisname), "' does NOT exist. Stopping."
          print *
-         stop 
+         error stop 
       end if
 
       !Skipping comment lines
@@ -659,7 +659,7 @@ contains
             else
                print "(3a)", " File: '", trim(latticefile), "' does NOT exist. Stopping."
                print *
-               stop 
+               error stop 
             end if
 
             !Check for commented line
@@ -684,7 +684,7 @@ contains
             else
                print "(3a)", " File: '", trim(pairfile), "' does NOT exist. Stopping."
                print *
-               stop 
+               error stop 
             end if
 
             !This factor of 2 is to ajust difference between this hamiltonian here and the spirit code
@@ -714,7 +714,7 @@ contains
             do 
                read(unit=92, fmt="(a)", iostat=reading_status) read_in_data
                if( reading_status < 0 ) exit
-               if( reading_status > 0 ) stop "Sub initialization() error: On reading interaction pair file 'pairfile'. Stopping."
+               if( reading_status > 0 ) error stop "Sub initialization() error: On reading interaction pair file 'pairfile'. Stopping."
                
                read( read_in_data, *) word
                if( read_in_data(1:1) == "#" .or. trim(word) == "i" ) cycle
@@ -722,7 +722,7 @@ contains
                read( read_in_data, fmt=* , iostat=reading_status) l1, l2, d1, d2, d3, Dx, Dy, Dz, Jnn
 
                if( reading_status .ne. 0 ) cycle
-               ! if( reading_status .ne. 0 ) stop "Sub initialization() error: On reading interaction pair file 'pairfile'. Stopping."
+               ! if( reading_status .ne. 0 ) error stop "Sub initialization() error: On reading interaction pair file 'pairfile'. Stopping."
 
                if( l1 == 0 ) badindexing = .false.
                if( l1 == naucell - 1 ) atoms_distinguisable = .true. !Test if the interaction for the last atom was given, then it assumes that the atom are considered distinguisible, and that the set of interaction for each atom is given
@@ -753,7 +753,7 @@ contains
                            ! print "('new atom2 ','   ',1i3,3i4)",     new_l2, da, db, dc
 
                            counter = counter + 1
-                           if(counter>100000) stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
+                           if(counter>100000) error stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
 
                            positions(counter,:) = pos_atom2 - pos_atom1
                            ijda_db_dc(counter,:) = [ new_l1+1, new_l2+1, da, db, dc ] !+1 in the first two elements because in this program, the atom indices start counting at 1 and not zero (like in the Spirit-code)
@@ -763,7 +763,7 @@ contains
                            do
                               if( ((pos_norm+1                 > big_a1_norm) .or. (pos_norm+1                 > big_a2_norm)) .and. &
                                  ((interactions_cutoff_radius > big_a1_norm) .or. (interactions_cutoff_radius > big_a2_norm)) ) then
-                                 ! stop "Cluster of interaction larger than simulation box. Please increase 'ncellpdim' in the inputcard_XX.inp. Stopping."
+                                 ! error stop "Cluster of interaction larger than simulation box. Please increase 'ncellpdim' in the inputcard_XX.inp. Stopping."
                                  ncellpdim = ncellpdim+1
                                  big_a1_norm = norm2( big_a1 * (ncellpdim-1) )
                                  big_a2_norm = norm2( big_a2 * (ncellpdim-1) )
@@ -795,7 +795,7 @@ contains
                else !if spirit input is not given 
 
                   counter = counter + 1
-                  if(counter>100000) stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
+                  if(counter>100000) error stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
 
                   if( c1c2c3set_given ) then
                      positions(counter,:) = d1*c1 + d2*c2 + d3*c3
@@ -809,7 +809,7 @@ contains
                   do
                      if( ((pos_norm+1                 > big_a1_norm) .or. (pos_norm+1                 > big_a2_norm)) .and. &
                         ((interactions_cutoff_radius > big_a1_norm) .or. (interactions_cutoff_radius > big_a2_norm)) ) then
-                        ! stop "Cluster of interaction larger than simulation box. Please increase 'ncellpdim' in the inputcard_XX.inp. Stopping."
+                        ! error stop "Cluster of interaction larger than simulation box. Please increase 'ncellpdim' in the inputcard_XX.inp. Stopping."
                         ncellpdim = ncellpdim+1
                         big_a1_norm = norm2( big_a1 * (ncellpdim-1) )
                         big_a2_norm = norm2( big_a2 * (ncellpdim-1) )
@@ -838,7 +838,7 @@ contains
 
             print "(a, i0)", " ncellpdim = ", ncellpdim
 
-            if( badindexing ) stop "Most probably your indexing is wrong in the interaction file. Basis atom index should start at zero. Stopping."
+            if( badindexing ) error stop "Most probably your indexing is wrong in the interaction file. Basis atom index should start at zero. Stopping."
             if( atoms_distinguisable ) then
                print "(a)", " Atoms are DIStinguisible, and a set of interaction for each atom should have been given. If the spirit cfg file is ..."
                print "(a)", "   ... passed and a simulation box is considered, it is ok to provide only the interaction for the primitive unit cell."
@@ -1048,7 +1048,7 @@ contains
             effnkpt = effnkpt + nkpt_npath(j)
             if(nkpt_npath(j)<1) then
                print "(a,i0,a,i0,a)", " Number of k points in the path ", j, " is too small: ", nkpt_npath(j), ". Increase 'npt'. Stopping."
-               stop
+               error stop
             end if
          end do
          effnkpt = effnkpt+1 !One more point to include the last kpoint
@@ -1375,7 +1375,7 @@ contains
             Jtilde0zz(l1) = Jtilde0zz(l1) + Si(l2) * J0j(l1,i,l2,3,3)
          end do
       end do; end do
-      ! print *,"Constant:", Jtilde0zz; stop
+      ! print *,"Constant:", Jtilde0zz; error stop
 
 
       !Dij construction
@@ -1436,7 +1436,7 @@ contains
 ! Dmatrix(ikptn,2,:)=Dmatrix(ikptn,2,:)+Dmatrix(ikptn,6,:)
 ! do m=1, twonaucell
 !    print "(8f6.1)", (REAL(Dmatrix(ikptn,m,n)),n=1,twonaucell)
-! end do; stop   
+! end do; error stop   
       end do !Loop of k
 
    end subroutine commutationmatrix
@@ -1709,7 +1709,7 @@ contains
       print *, "    k: ", kpoints(1,:)
       print *, "k/2pi: ", kpoints(1,:)/(2.d0*pi)
       print *, "Mode energy: ", evalues(naucell+1-mode)
-      stop
+      error stop
    end subroutine occupationnumber
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
