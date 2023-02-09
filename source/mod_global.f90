@@ -1371,12 +1371,12 @@ contains
 
       naucellaux=naucell
       if(naucell>5) naucellaux = 5
-      write(formt,fmt="(a,i0,a)") "(f12.8,'| ',", naucellaux+1, "f16.8)"
+      write(formt,fmt="(a,i0,a)") "(f12.8,'| ',", naucellaux, "f16.8)"
       print *
       print "(a)", "High symmetry point path location:"
       print *, " Path      | Correspondent frequency value"
       do i = 1, npath+1
-         write( unit=*, fmt=formt) real(highsymm(i,1)),  ( real(highsymm(i,naucell+1-j)), j=0, naucellaux)  
+         write( unit=*, fmt=formt) real(highsymm(i,1)),  ( real(highsymm(i,naucell+1-j)), j=0, naucellaux-1)  
       end do
 
       open(unit=456,file="outputfiles/highsympoints.gnu")
