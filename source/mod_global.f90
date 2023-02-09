@@ -172,7 +172,7 @@ contains
       implicit none
       real(kind=pc), parameter :: c0(3) = [0.123456789, 0.123456789, 0.123456789]
 
-      integer :: i,j,k, dim, counter, reading_status, d1, d2, d3, l1, l2, ierr, num_atoms_small_basis, polariz, da, db, dc, new_l1, new_l2
+      integer :: i,j,k, dim, counter, reading_status, d1, d2, d3, l1, l2, ierr, num_atoms_small_basis, polariz, da, db, dc, new_l1, new_l2, num_primitive_cells_in_sim_box
       real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization(3), Sx, Sy, Sz, Sx_aux, Sy_aux, Sz_aux, pos_norm, big_a1_norm, big_a2_norm, big_a3_norm, Rotmat_aux(3,3), polarizations(3,2)
       real(kind=pc), allocatable :: unit_cell_basis(:,:)
       real(kind=pc) :: c1(3)=c0, c2(3)=c0, c3(3)=c0, position(3), displacement(3), pos_atom1(3), pos_atom2(3)
@@ -286,6 +286,16 @@ contains
             if( word == "basis") flag1 = .true.
             !-------------------------------------------------------
 
+            !______________________________________________________
+            if( word == "n_basis_cells") then
+               read(lines, *) word, n_basis_cells
+               num_primitive_cells_in_sim_box = n_basis_cells(1)*n_basis_cells(2)*n_basis_cells(3)
+               naucell = num_primitive_cells_in_sim_box*num_atoms_small_basis
+               print "(a,3i4)", " n_basis_cells ", n_basis_cells
+               print "(a,3i4)", " naucell ", naucell
+            end if
+            !-------------------------------------------------------
+
          end do
          print "(a)", "END Reading SPIRIT inputcard."
          print *
@@ -303,6 +313,37 @@ contains
 
       ! Search for the location of the first element equal to 0.123456789d0, 
       i = FINDLOC(mu_s, 0.123456789d0, 1)
+
+      if( spirit_input_given ) then
+
+         ! If only one mag mom was given, use it for all sites
+         if( i==2 ) then
+            mu_s_array = mu_s(1)
+         ! If no mag mom was inputed
+         else if( i==1 ) then
+            j = FINDLOC(mu_s_vec, 0.123456789d0, 1)
+            if( j==num_atoms_small_basis+1 ) then
+               do k = 0, num_primitive_cells_in_sim_box - 1
+                  mu_s_array( 1 + (k*num_atoms_small_basis) : num_atoms_small_basis + (k*num_atoms_small_basis)) = mu_s_vec( 1:num_atoms_small_basis )
+               end do
+            ! If no mu_s nor mu_s_vec were inputted
+            else if( j==1 ) then
+               print *, " ATTENTION! No magnetic momement 'mu_s' was given. Setting mu_s = 1 which corresponds to spin 1/2 to all sites."
+               mu_s_array = 1.d0
+            else
+               stop " Number of mag. moms. does not match number of sites in the primitive unit cell. Check inputcard 'inputcard_XXX.inp'. Stopping."
+            end if
+         ! If number of mag mom is not equal to the number of sites
+         else if( i .NE. num_atoms_small_basis+1 ) then
+            stop " Number of mag. moms. does not match number of sites in the primitive unit cell. Check inputcard 'inputcard_XXX.inp'. Stopping."
+         else
+            do k = 0, num_primitive_cells_in_sim_box - 1
+               mu_s_array( 1 + (k*num_atoms_small_basis) : num_atoms_small_basis + (k*num_atoms_small_basis)) = mu_s( 1:num_atoms_small_basis )
+            end do
+         end if
+         print "(a,1000f8.4)", " Mag moms= ", mu_s_array
+
+      else
 
       ! If only one mag mom was given, use it for all sites
       if( i==2 ) then
@@ -326,6 +367,8 @@ contains
          mu_s_array = mu_s(1:naucell)
       end if
       print "(a,1000f8.4)", " Mag moms= ", mu_s_array
+
+      end if         
 
       !If to compute spectrum of a energy cut, we use a kpoint mesh instead of a kpoint path.
       if( constant_energy_plot ) kpoint_mesh = .true.
@@ -511,6 +554,7 @@ contains
 
          end do
 
+         !Reading or determining the positions of each atom in the basis. In the 'spirit' mode, the atom positions are read from a separate file
          if( spirit_input_given ) then
             counter = 0
             do k = 0, n_basis_cells(3) -1
