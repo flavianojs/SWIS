@@ -136,7 +136,7 @@ contains
       end if
    end do
 
-   if( l1 == -1 ) stop("Subroutine 'decomposition' did not identify an atom in the basis with the required position.")
+   if( l1 == -1 ) error stop("Error: Subroutine 'decomposition' did not identify an atom in the basis with the required position.")
 
    end subroutine decomposition
 
@@ -174,7 +174,7 @@ contains
 
       integer :: i,j,k, dim, counter, reading_status, d1, d2, d3, l1, l2, ierr, num_atoms_small_basis, polariz, da, db, dc, new_l1, new_l2, num_primitive_cells_in_sim_box
       real(kind=pc) :: basisaux(3), amat(3,3), bmat(3,3), net_magnetization(3), Sx, Sy, Sz, Sx_aux, Sy_aux, Sz_aux, pos_norm, big_a1_norm, big_a2_norm, big_a3_norm, Rotmat_aux(3,3), polarizations(3,2)
-      real(kind=pc), allocatable :: unit_cell_basis(:,:)
+      real(kind=pc), allocatable :: unit_cell_basis(:,:), Sx_vec(:), Sy_vec(:), Sz_vec(:)
       real(kind=pc) :: c1(3)=c0, c2(3)=c0, c3(3)=c0, position(3), displacement(3), pos_atom1(3), pos_atom2(3)
       complex(kind=pc) :: HP(3,3), HPinv(3,3), aux(3,3)
       character(len=1000) :: read_in_data, lines, spirit_input = "", pairfile
@@ -332,9 +332,8 @@ contains
                mu_s_array( 1 + (k*num_atoms_small_basis) : num_atoms_small_basis + (k*num_atoms_small_basis)) = mu_s( 1:num_atoms_small_basis )
             end do
          end if
-         print "(a,1000f8.4)", " Mag moms= ", mu_s_array
 
-      else
+      else ! If spirit input was not given
 
          ! If only one mag mom was given, use it for all sites
          if( i==2 ) then
@@ -357,9 +356,9 @@ contains
          else
             mu_s_array = mu_s(1:naucell)
          end if
-         print "(a,1000f8.4)", " Mag moms= ", mu_s_array
 
       end if         
+      print "(a,1000f8.4)", " Mag moms= ", mu_s_array
 
       !If to compute spectrum of a energy cut, we use a kpoint mesh instead of a kpoint path.
       if( constant_energy_plot ) kpoint_mesh = .true.
@@ -470,11 +469,11 @@ contains
       big_a2_norm = norm2( big_a2 * (ncellpdim-1) )
       big_a3_norm = norm2( big_a3 * (ncellpdim-1) )
 
-      allocate( anglesphi(naucell), anglestheta(naucell), Si(naucell), basis(naucell,3), Rotmat(naucell,3,3), Rotpm(naucell,3,3) )
+      allocate( anglesphi(naucell), anglestheta(naucell), Si(naucell), basis(naucell,3), Rotmat(naucell,3,3), Rotpm(naucell,3,3), Sx_vec(naucell), Sy_vec(naucell), Sz_vec(naucell) )
       
       !To calculate the k path where the dispersion will be calculated
       dim = sum(dims)
-      if( norm2(a1)<zero_toler .or. norm2(a2)<zero_toler .or. norm2(a3)<zero_toler ) stop("Please make sure that none of the primitive vectors, a1, a2, and a3 are null in the 'inputcard_XX.inp'. Stopping.")
+      if( norm2(a1)<zero_toler .or. norm2(a2)<zero_toler .or. norm2(a3)<zero_toler ) error stop("Error: Please make sure that none of the primitive vectors, a1, a2, and a3 are null in the 'inputcard_XX.inp'. Stopping.")
       amat(1,:) = a1 !/latcons*n_basis_cells(1)
       amat(2,:) = a2 !/latcons*n_basis_cells(2)
       amat(3,:) = a3 !/latcons*n_basis_cells(3)
@@ -523,27 +522,116 @@ contains
          print *, "'Spirit' mode is on."
 
          !Reading the spin configuration: spin orientation
-         do i = 1, naucell 
+         counter = 0
+         do 
             !In the 'spirit' mode, the spin orientation are read in cartesian coordinates.
             read(unit=90, fmt=*, iostat=ierr) Sx_aux, Sy_aux, Sz_aux
-            if(is_iostat_end(ierr)) then
-               print "(a,i3,a,i3,a)", ' WARNING: too few spin vectors were found in the spin configuration file (.ovf) . Expected = ',naucell,' Found = ',i-1,'. The last vector will be copies to the remaining sites. Make sure this is what you want.'
-               exit
-            end if
 
-            Sx = Sx_aux * Si_aux * (mu_s_array(i)/gamma) ! Si_aux was added as a way to rescale the Spin directly without affecting the interactions like mu does
-            Sy = Sy_aux * Si_aux * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
-            Sz = Sz_aux * Si_aux * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
-            Si(i) = norm2([Sx, Sy, Sz])
-            anglestheta(i) = acos( Sz/Si(i))
+            if( is_iostat_end(ierr) .or. ierr .ne. 0 ) exit
+            counter = counter + 1
 
-            if( Si(i) < zero_toler ) then
-               anglesphi(i) = 0.d0
-            else
-               anglesphi(i) = atan2( Sy, Sx )
-            end if
-
+            Sx_vec(counter) = Sx_aux
+            Sy_vec(counter) = Sy_aux
+            Sz_vec(counter) = Sz_aux
          end do
+
+         if( spirit_input_given ) then
+            if( counter .ne. naucell .and. counter .ne. num_atoms_small_basis ) error stop('Error: Number of spins read in the spin configuration file (possibly *.ovf) does not match the num. of atoms in the primitive unit cell nor the simulation box. Stopping.')
+
+            if( counter == num_atoms_small_basis ) then
+
+               do j = 0, num_primitive_cells_in_sim_box-1
+                  do i = 1, num_atoms_small_basis
+                     Sx_aux = Sx_vec(i)
+                     Sy_aux = Sy_vec(i)
+                     Sz_aux = Sz_vec(i)
+
+                     k = i+j*num_atoms_small_basis
+                     Sx = Sx_aux * Si_aux * (mu_s_array(k)/gamma) ! Si_aux was added as a way to rescale the Spin directly without affecting the interactions like mu does
+                     Sy = Sy_aux * Si_aux * (mu_s_array(k)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
+                     Sz = Sz_aux * Si_aux * (mu_s_array(k)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
+                     Si(k) = norm2([Sx, Sy, Sz])
+                     if( Si(k) < zero_toler ) error stop('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
+                     anglestheta(k) = acos( Sz/Si(k))
+
+                     if( Si(k) < zero_toler ) then
+                        anglesphi(k) = 0.d0
+                     else
+                        anglesphi(k) = atan2( Sy, Sx )
+                     end if
+                  end do ! loop over number of atoms in the small unit cell
+               end do ! loop over number of small unit cells in simulation box
+
+            elseif( counter == naucell ) then
+
+               do i = 1, naucell
+                  Sx_aux = Sx_vec(i)
+                  Sy_aux = Sy_vec(i)
+                  Sz_aux = Sz_vec(i)
+
+                  Sx = Sx_aux * Si_aux * (mu_s_array(i)/gamma) ! Si_aux was added as a way to rescale the Spin directly without affecting the interactions like mu does
+                  Sy = Sy_aux * Si_aux * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
+                  Sz = Sz_aux * Si_aux * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
+                  Si(i) = norm2([Sx, Sy, Sz])
+                  if( Si(i) < zero_toler ) error stop('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
+                  anglestheta(i) = acos( Sz/Si(i))
+
+                  if( Si(i) < zero_toler ) then
+                     anglesphi(i) = 0.d0
+                  else
+                     anglesphi(i) = atan2( Sy, Sx )
+                  end if
+               end do
+
+            end if
+
+         else ! if spirit input is NOT given 
+            if( counter .ne. naucell ) error stop('Error: Number of spins read in the spin configuration file (possibly *.ovf) does not match the num. of atoms in the unit cell. Stopping.')
+
+            do i = 1, naucell
+               Sx_aux = Sx_vec(i)
+               Sy_aux = Sy_vec(i)
+               Sz_aux = Sz_vec(i)
+
+               Sx = Sx_aux * Si_aux * (mu_s_array(i)/gamma) ! Si_aux was added as a way to rescale the Spin directly without affecting the interactions like mu does
+               Sy = Sy_aux * Si_aux * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
+               Sz = Sz_aux * Si_aux * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
+               Si(i) = norm2([Sx, Sy, Sz])
+               if( Si(i) < zero_toler ) error stop('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
+               anglestheta(i) = acos( Sz/Si(i))
+
+               if( Si(i) < zero_toler ) then
+                  anglesphi(i) = 0.d0
+               else
+                  anglesphi(i) = atan2( Sy, Sx )
+               end if
+            end do
+         end if ! if spirit input is given
+
+
+         ! flag1 = .true. ! Flag for the first end-of-file error
+         ! do i = 1, naucell 
+         !    !In the 'spirit' mode, the spin orientation are read in cartesian coordinates.
+         !    read(unit=90, fmt=*, iostat=ierr) Sx_aux, Sy_aux, Sz_aux
+         !    if(is_iostat_end(ierr) .and. flag1) then
+         !       print "(a,i3,a,i3,a)", ' WARNING: too few spin vectors were found in the spin configuration file (.ovf) . Expected = ',naucell,' Found = ',i-1,'. The last vector will be copies to the remaining sites. Make sure this is what you want.'
+         !       flag1 = .false.
+         !    end if
+
+         !    Sx = Sx_aux * Si_aux * (mu_s_array(i)/gamma) ! Si_aux was added as a way to rescale the Spin directly without affecting the interactions like mu does
+         !    Sy = Sy_aux * Si_aux * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
+         !    Sz = Sz_aux * Si_aux * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
+         !    Si(i) = norm2([Sx, Sy, Sz])
+         !    if( Si(i) < zero_toler ) error stop('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
+         !    anglestheta(i) = acos( Sz/Si(i))
+
+         !    if( Si(i) < zero_toler ) then
+         !       anglesphi(i) = 0.d0
+         !    else
+         !       anglesphi(i) = atan2( Sy, Sx )
+         !    end if
+         ! end do
+
          
          !Reading or determining the positions of each atom in the basis. In the 'spirit' mode, the atom positions are read from a separate file
          if( spirit_input_given ) then
@@ -1179,7 +1267,7 @@ contains
             l1 = ijda_db_dc(i,1)
             l2 = ijda_db_dc(i,2)
 
-            if( 1 > l1 > naucell .or. 1 > l2 > naucell  ) stop("Atom indeces failed to test: 1 <= [l1, l2] <= 'naucell'. Stopping.")
+            if( 1 > l1 > naucell .or. 1 > l2 > naucell  ) error stop("Error: Atom indeces failed to test: 1 <= [l1, l2] <= 'naucell'. Stopping.")
             
             do n = 1, ncell
                r0jaux = ijda_db_dc(i,3)*a1 + ijda_db_dc(i,4)*a2 + ijda_db_dc(i,5)*a3 
@@ -1190,7 +1278,7 @@ contains
             end do
             ! if(l1==2 .and. l2==2 .and. j==116) print "(a,8f9.4)" , "J0j    ", Jtemp(1,1), Jtemp(1,2), Jtemp(2,1), Jtemp(2,2)  !For test, to be deleted
 
-            if( 1 > j > ncell  ) stop("Unit cell index failed the test: 1 <= j <= 'ncell'. Stopping.")
+            if( 1 > j > ncell  ) error stop("Error: Unit cell index failed the test: 1 <= j <= 'ncell'. Stopping.")
 
             n_inter_per_atom(l1) = n_inter_per_atom(l1) + 1
 
