@@ -10,7 +10,7 @@ params = {
           # 'font.size': 18,
           'font.family': 'serif',
           # 'legend.fontsize': 14,
-          'figure.figsize': (5.5, 5) ,
+          'figure.figsize': (7.5, 7) ,
           "legend.loc": 'upper left',
           'mathtext.fontset': 'dejavuserif'}
 plt.rcParams.update(params)
@@ -37,21 +37,21 @@ for line in lines_input_file :
       # print( "PLOT", counter )
       if counter == 1 :
          plt.plot(points_x, points_y, linewidth=1.5, color='black', linestyle='', marker='o', markersize=5, label='Reciprocal lattice' )
-         box_lim = max(points_x)*1.1
+         box_lim = max(points_x)*1.3
       elif counter == 2 :
-         plt.plot(points_x, points_y, linewidth=1.5, color='red', linestyle='-', marker='', label=r'$k$ path' )
+         plt.plot(points_x, points_y, linewidth=1.5, color='red', linestyle='--', marker='', label=r'$k$ path' )
       elif counter == 3 :
-         plt.arrow(points_x[0], points_y[0], points_x[1], points_y[1], color='blue', linestyle='--', head_width=0.08, length_includes_head=True)
+         plt.arrow(points_x[0], points_y[0], points_x[1], points_y[1], color='blue', linestyle='-', linewidth=1, head_width=0.38, head_length=0.48, length_includes_head=True)
 
-         text_pos = 0.65*( np.array( [ points_x[1], points_y[1] ] ) - np.array( [ points_x[0], points_y[0] ] ) ) + np.array([0,0.17])
+         text_pos = 0.65*( np.array( [ points_x[1], points_y[1] ] ) - np.array( [ points_x[0], points_y[0] ] ) ) + np.array([0,0.8])
          plt.text(text_pos[0], text_pos[1], r'$b_1$', fontsize=12, color='blue')
       elif counter == 4 :
-         plt.arrow(points_x[0], points_y[0], points_x[1], points_y[1], color='blue', linestyle='--', head_width=0.08, length_includes_head=True)
+         plt.arrow(points_x[0], points_y[0], points_x[1], points_y[1], color='blue', linestyle='-', linewidth=1, head_width=0.38, head_length=0.48, length_includes_head=True)
          
-         text_pos = 0.75*( np.array( [ points_x[1], points_y[1] ] ) - np.array( [ points_x[0], points_y[0] ] ) ) + np.array([-0.22,0.0])
+         text_pos = 0.75*( np.array( [ points_x[1], points_y[1] ] ) - np.array( [ points_x[0], points_y[0] ] ) ) + np.array([0.1,-0.2])
          plt.text(text_pos[0], text_pos[1], r'$b_2$', fontsize=12, color='blue')
       else :
-         plt.plot(points_x, points_y, linewidth=1.5, color='black', linestyle='-', marker='', markersize=5 )
+         plt.plot(points_x, points_y, linewidth=1.0, color='black', linestyle=':', marker='', markersize=5 )
 
       points_x = []
       points_y = []
@@ -65,6 +65,6 @@ axes.set_ylim([ -box_lim, box_lim ])
 
 plt.legend()
 
-outfile = "kpath_"+sys.argv[1]+".png"
+outfile = "kpath_"+sys.argv[1]+".pdf"
 print( 'kpath output file:', outfile )
 plt.savefig(outfile)
