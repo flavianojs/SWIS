@@ -1,0 +1,70 @@
+!!!!!!!!!!!!!!!!! Simulation control board (Parameters) !!!!!!!!!!!!!
+&input
+dims = 1 1 1, !Determines the dimension of the problem. Each dimension shall be filled by 1 or 0
+npt = 300, naucell = 2, ncellpdim = 2,! n. of k-point in the disperion; n. of atom in the unit cell; number of real space unit cell for the Fourier transformation
+latcons = 1.d0, nndist = 1.d0,
+spirit = .true.,
+!Unfolding:
+unfolding = .true.,
+nptomega = 100,
+maxomega =  400.0, minomega = 0, eta=8.0d-0,
+
+a1 =  0.50 0.50 1.00,   !In unit of the lattice constant, 
+a2 =  0.50 1.00 0.50,   ! i.e., a1 will become later a1=a1*latcons
+a3 =  1.00 0.50 0.50, 
+
+!               phi       theta 
+polarization1 = 0.0d0 1.57079632679490d0,               !x
+polarization2 = 1.57079632679490d0 1.57079632679490d0,  !y
+polarization3 = 0.d0 0.d0,                              !z  
+
+Jnn = 0.d0, Dnn = 0.0d0, 
+
+muB = 5.7883818012d-2, !Bohr magneton in meV. Set to 1.d0 if want to input 'hmm0' direct in meV.
+hmagunitvec = 0.d0  0.d0 1.d0,
+!in Tesla. For meV, make 'muB = 1.d0'
+hm0 = 0.0d0,
+mu_s = 1.07, ! mag. mom.
+gamma = 2.d0, ! S = m   u_s / gamma
+J_D_scaling = 2.0d0, ! For the difference between in the inner hamiltonian and the JMcode/Spirit one.
+kaniunitvec = 0.d0  1.d0 0.d0, kanis =  0.0d-0, ! k = knais . g^2 / mu_s^2
+kaniunitvec2= 0.d0  0.d0 1.d0, kanis2=  0.0d-0, ! k = knais . g^2 / mu_s^2
+
+spirit_old_method=.true.
+spirit = .true.,
+toprint = .false.,
+analytics = .false.,
+calc_occup = .false., 
+mode = 11, !For which mode should the occup. numb. be calculated
+spin_dyn = 1,
+internalunit = .true.,
+plot_supercell_BZ = .true.,
+
+! neutron_factor = .false.,
+! circular_cartesian_convertion_factor = .true.,
+spirit_input = "input_NiO.cfg"
+/
+
+&input2
+!The high symmetry points P=(p1,p2,p3,p4) are given via the matrix M(4x4), where P=Mb, and b=(b1,b2,b3,0), the reciprocal lattice vectors 
+syptsMataux =   
+  0.0000000000 	0.0000000000 	0.0000000000 
+  0.0000000000 	0.5000000000 	0.0000000000 
+  0.5000000000 	0.5000000000 	0.5000000000 
+  0.5000000000 	0.5000000000 	0.5000000000  
+,
+
+basisname   = "spirit_output/spinconfig_final.ovf",
+pairfile    = "inputfiles/Jij_KKR.spirit",
+latticefile = "inputfiles/lattice.dat"
+/
+
+&input3
+!For the ground state program
+itmax   = 8000000, 
+epsi    = 1.d-7,
+step    = 0.05d0,
+rinit   = .true.,
+itwrite = .true. 
+/
+

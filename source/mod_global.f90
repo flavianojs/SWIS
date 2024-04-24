@@ -5,6 +5,7 @@ module mod_global
    implicit none
    !!!!!!!! Globals, constants and non-ajustables !!!!!!!!!!!!!!!!!!!!!!
    integer, parameter :: pc=8 !Precision of the calculations
+   integer, parameter :: max_dimension_array=100000 !Precision of the calculations
    complex(kind=pc), parameter :: ii=(0.d0,1.d0), czero=(0.d0,0.d0), cone=(1.d0,0.d0), ctwo=(2.d0,0.d0)
    real(kind=pc), parameter :: pi=2.d0*asin(1.d0)
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -20,16 +21,16 @@ module mod_global
    integer :: max_num_kpt_path=50, max_num_ani=100
    integer, allocatable :: nkpt_npath(:)
    real(kind=pc) :: latcons
-   real(kind=pc) :: a1(3), big_a1(3), b1(3)
-   real(kind=pc) :: a2(3), big_a2(3), b2(3)
-   real(kind=pc) :: a3(3), big_a3(3), b3(3)
+   real(kind=pc) :: a1(3), big_a1(3), b1(3), big_b1(3)
+   real(kind=pc) :: a2(3), big_a2(3), b2(3), big_b2(3)
+   real(kind=pc) :: a3(3), big_a3(3), b3(3), big_b3(3)
    real(kind=pc) :: polarization1(2) = [0.d0,0.d0], polarization2(2) = [0.d0,0.d0], polarization3(2) = [0.d0,0.d0]
 
    !The Interactions
-   real(kind=pc) :: Jnn=0.0d0, all_Jnn(20)=0.d0, all_nndist(20)=0.d0, Dnn=0.d0, kanis=0.d0, kanis2=0.d0, hm0=0.d0, muB=1.d0, interactions_cutoff_radius = 1.d6
+   real(kind=pc) :: Jnn=0.0d0, all_Jnn(1000)=0.d0, all_nndist(1000)=0.d0, Dnn=0.d0, kanis=0.d0, kanis2=0.d0, hm0=0.d0, muB=1.d0, interactions_cutoff_radius = 1.d6
    real(kind=pc) :: hmagunitvec(3), kaniunitvec(3) = [0.d0, 0.d0, 1.d0], kaniunitvec2(3) = [0.d0, 0.d0, 1.d0], J_D_scaling=0.123456789d0
    real(kind=pc) :: mu_s(1000)=0.123456789d0, gamma=1.d0 ! mag mom equals to gamma times the spin operator: mu_s = gamma * S
-   real(kind=pc) :: mu_s_vec(1000) = 0.123456789d0, Si_aux=1.d0
+   real(kind=pc) :: mu_s_vec(1000) = 0.123456789d0, Si_aux=1.d0, last_mu = 0.123456789d0
 
    !Calculations to be performed
    logical :: Tneel=.false.
@@ -44,6 +45,7 @@ module mod_global
    logical :: internalunit=.false.
    logical :: neutron_factor=.false. !Neutron scattering polarisation factor which ensures only components of spin perpendicular to k are observed
    logical :: spirit_old_method=.false.
+   logical :: plot_supercell_BZ=.false.
    logical :: atoms_distinguisable=.false.
    logical :: constant_energy_plot=.false.
    logical :: circular_cartesian_convertion_factor=.true. !Add the convertion term from circular to catersian spin compenents when computing the neutron scattering cross section
@@ -61,9 +63,9 @@ module mod_global
    integer :: num_anisotropies = 0
    complex(kind=pc), allocatable :: highsymm(:,:), Rotpm(:,:,:), g(:,:)
    complex(kind=pc) :: paulimatrix(3,3,2,2), paulimatrix_cartesian(3,2,2), paulimatrix_cartesian_rotated(3,2,2)
-   real(kind=pc) :: beg_cpu_time, positions(100000,3), DJvect(100000,4)
+   real(kind=pc) :: beg_cpu_time, positions(max_dimension_array,3), DJvect(max_dimension_array,4)
    real(kind=pc) ::  kaniunitvec3(3), kanis3
-   integer :: ijda_db_dc(100000,5)
+   integer :: ijda_db_dc(max_dimension_array,5)
    logical :: maxomegaOK
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -198,11 +200,12 @@ contains
          Jnn, J_D_scaling, Dnn, nndist, all_Jnn, all_nndist, interactions_cutoff_radius, &
          hm0, muB, Si_aux, hmagunitvec, &
          kanis, kanis2, kaniunitvec, kaniunitvec2, &
-         mu_s, gamma, mu_s_vec, &
+         mu_s, gamma, mu_s_vec, last_mu, &
       !===== logical var: turn on and off features =======================================
          spirit, spirit_input, unfolding, analytics, calc_occup, constant_energy_plot, & 
          toprint, printD, toprint_Rij, spirit_old_method, atoms_distinguisable, &
          kpoint_mesh, Tneel, neutron_factor, circular_cartesian_convertion_factor, &
+         plot_supercell_BZ, &
       !===== others ======================================================================
          mode, spin_dyn, zero_toler
 
@@ -331,6 +334,9 @@ contains
             do k = 0, num_primitive_cells_in_sim_box - 1
                mu_s_array( 1 + (k*num_atoms_small_basis) : num_atoms_small_basis + (k*num_atoms_small_basis)) = mu_s( 1:num_atoms_small_basis )
             end do
+            if( last_mu .ne. 0.123456789d0) then
+               mu_s_array(naucell) = last_mu
+            end if
          end if
 
       else ! If spirit input was not given
@@ -484,7 +490,24 @@ contains
       b1 = bmat(1,:)!*norm2(a1)
       b2 = bmat(2,:)!*norm2(a2)
       b3 = bmat(3,:)!*norm2(a3)
-      
+
+      if( plot_supercell_BZ ) then
+         amat(1,:) = big_a1 !/latcons*n_basis_cells(1)
+         amat(2,:) = big_a2 !/latcons*n_basis_cells(2)
+         amat(3,:) = big_a3 !/latcons*n_basis_cells(3)
+         bmat = 0.d0 !This is important to initialize the part of the bmat matrix that wont be initialized on the next line
+         bmat = 2.d0*pi* transpose(inv(amat))
+         ! bmat(1:dim,1:dim) = 2.d0*pi* transpose(inv(amat(1:dim,1:dim)))
+
+         big_b1 = bmat(1,:)!*norm2(a1)
+         big_b2 = bmat(2,:)!*norm2(a2)
+         big_b3 = bmat(3,:)!*norm2(a3)
+      else 
+         big_b1 = b1
+         big_b2 = b2
+         big_b3 = b3
+      end if
+
       call kpointsinitialization()
       !end: To calculate the k path where the dispersion will be calculated
 
@@ -753,7 +776,7 @@ contains
                            ! print "('new atom2 ','   ',1i3,3i4)",     new_l2, da, db, dc
 
                            counter = counter + 1
-                           if(counter>100000) error stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
+                           if(counter>max_dimension_array) error stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
 
                            positions(counter,:) = pos_atom2 - pos_atom1
                            ijda_db_dc(counter,:) = [ new_l1+1, new_l2+1, da, db, dc ] !+1 in the first two elements because in this program, the atom indices start counting at 1 and not zero (like in the Spirit-code)
@@ -795,7 +818,7 @@ contains
                else !if spirit input is not given 
 
                   counter = counter + 1
-                  if(counter>100000) error stop "Sub initialization() error: There are more than 10000 entry on the 'pairfile'. 'mod_global' has to be modified."
+                  if(counter>max_dimension_array) error stop "Sub initialization() error: There are more interaction-pair entries than max dimension of array. 'mod_global' has to be modified."
 
                   if( c1c2c3set_given ) then
                      positions(counter,:) = d1*c1 + d2*c2 + d3*c3
@@ -847,7 +870,7 @@ contains
             end if            
 
             ninteraction_pairs = counter 
-            print *, "Interaction parameters read from file. Number of interaction pairs:", ninteraction_pairs
+            print *, "Interaction parameters read from file. Number of interaction pairs:", ninteraction_pairs/num_primitive_cells_in_sim_box
 
          end if !in not spirit
       end if !If n_nndists == 0
@@ -1682,19 +1705,27 @@ contains
       complex(kind=pc), intent(in) :: evector(twonaucell,twonaucell), evalues(twonaucell)
       integer, intent(in) :: mode
       real(kind=pc) :: sumall, occupation, imag_occupation, real_occupation
-      integer :: j, kk, pp, modeindex
+      integer :: i, j, kk, pp, modeindex
+      character(len=70) :: formt, formt2, suffix
 
-      open(unit=99,file="occupation.dat",status="old")
-      open(unit=1001,file="eigenvector.dat",status="old")
+      i=index(inputcardname,"_")+1
+      j=index(inputcardname,".")-1
+      suffix = inputcardname(i:j)
+
+      formt="occupation_"//trim(suffix)//".dat"
+      open( unit=99, file=formt, status="unknown" )
+
+      formt="eigenvector_"//trim(suffix)//".dat"
+      open(unit=1001,file=formt,status="unknown")
 
       sumall = 0.d0
       ! do j = 1, twonaucell
       do j = 1, naucell
          occupation = 0.d0
-         do modeindex = 1, 64
-            occupation = occupation + ABS(evector(modeindex,j+naucell))**2
-         end do
-         ! occupation = ABS(evector(mode,j))**2 + ABS(evector(mode,j+naucell))**2
+         ! do modeindex = 1, 64
+         !    occupation = occupation + ABS(evector(modeindex,j+naucell))**2
+         ! end do
+         occupation = ABS(evector(naucell+1-mode,j))**2 + ABS(evector(naucell+1-mode,j+naucell))**2
          real_occupation = real(evector(naucell+1-mode,j))
          imag_occupation = aimag(evector(naucell+1-mode,j))
 
@@ -1709,7 +1740,7 @@ contains
       print *, "    k: ", kpoints(1,:)
       print *, "k/2pi: ", kpoints(1,:)/(2.d0*pi)
       print *, "Mode energy: ", evalues(naucell+1-mode)
-      error stop
+      stop
    end subroutine occupationnumber
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2101,7 +2132,7 @@ contains
       open( unit=987, file=formt )
 
       do i=-2,2; do j=-2,2
-         write(333, fmt=*) (b1*i + b2*j)
+         write(333, fmt=*) (big_b1*i + big_b2*j)
       end do; end do
       write(333, fmt=*) "#"
 
@@ -2117,7 +2148,7 @@ contains
             k = kpoints(i,:)
             write( unit=333, fmt=* ) k
             path = path + dkpoints(i)
-            !File "dispersion_**.dat" will contain the result via the numberical solution
+            !File "dispersion_**.dat" will contain the result via the numerical solution
             disp_matrix_aux = disp_matrix(i,:)
             write( unit=90, fmt=formt ) path/units, disp_matrix_aux
             disp_matrix_aux = disp_imag_matrix(i,:)
@@ -2196,20 +2227,20 @@ contains
       write(333, fmt=*) "# ^ Reciprocal space lattice"
 
       write(333, fmt=*) 0.0, 0.0, 0.0 
-      write(333, fmt=*) b1
+      write(333, fmt=*) big_b1
       write(333, fmt=*) "# ^ b1"
       write(333, fmt=*) 0.0, 0.0, 0.0 
-      write(333, fmt=*) b2 
+      write(333, fmt=*) big_b2 
       write(333, fmt=*) "# ^ b2"
 
-      if( norm2(b1) > norm2(b1) ) then
-         larger = norm2(b1)
+      if( norm2(big_b1) > norm2(big_b1) ) then
+         larger = norm2(big_b1)
       else
-         larger = norm2(b2)
+         larger = norm2(big_b2)
       end if
 
       do i=-1,1; do j=-1,1
-         k = (b1*i + b2*j)
+         k = (big_b1*i + big_b2*j)
          if( norm2(k) <= larger*1.2 ) then
             prevk = [-k(2), k(1), k(3)]
             write(333, fmt=*) 0.5*k - 0.5*larger*prevk/norm2(prevk)   

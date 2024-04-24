@@ -5,3 +5,7 @@
 *_genmod*
 *DS_Store*
 *.vscode*
+compilation_log.dat
+*CMake*.log
+bin/*
+build/* 

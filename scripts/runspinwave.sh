@@ -11,14 +11,16 @@
          spirit=0
      scale_pair=0
 
+source_folder='/home/dossan_f/Dropbox/scripts/dispersion-program'
+scripts='scripts/'
+
 spirit_config_file='input_MnSinoncol.cfg'
 spirit_initial_state='spirit_output/spinconfig_MnSinoncol_initial_random.ovf'
 
 scale_input='inputfiles/pair.txt'
 scale_output='inputfiles/pair_temp.txt'
 
-gnuscript="disp_unfol_multi_3panels.gnu"
-gnuscript="disp_unfol_multi_1panels.gnu"
+gnuscript=$scripts"plot_dispersion.gnu"
 
 export OMP_NUM_THREADS=1
 # ulimit -s unlimited
@@ -27,6 +29,8 @@ host=`hostname`
 echo Hostname: $host
 
 SWcode_executable="main_$host.exe"
+
+cmake=1
 
 if ! [ -f "$SWcode_executable" ]; then
     echo "$SWcode_executable does not exist. Forcing compilation."
@@ -37,7 +41,11 @@ fi
 if [ $host == 'Flavianos-MacBook-Pro.local' ] || [ $host == 'tsf-452-wpa-4-009.epfl.ch' ] || [ $host == 'Flavianos-MBP.psi.ch' ]; then
     source /opt/intel/bin/compilervars.sh intel64
     source /opt/intel/mkl/bin/mklvars.sh intel64
-    export OMP_NUM_THREADS=8
+    if [ $occupation -eq 1 ]; then
+        export OMP_NUM_THREADS=1
+    else
+        export OMP_NUM_THREADS=8
+    fi
 
 # For mb-santos
 elif [ $host == 'mb-dossantos' ] ; then
@@ -50,8 +58,17 @@ elif [ $host == 'theospc47' ] ; then
 	source /opt/intel/bin/compilervars.sh intel64
 	source /opt/intel/mkl/bin/mklvars.sh intel64
     export OMP_NUM_THREADS=16
+# For mpc2976
+elif [ $host == 'mpc2976' ] ; then
+	# . /opt/intel/oneapi/setvars.sh --force
+    export OMP_NUM_THREADS=14
 else
     echo "Unknown Hostcomputer: $host"
+    if [ $occupation -eq 1 ]; then
+        export OMP_NUM_THREADS=1
+    else
+        export OMP_NUM_THREADS=14
+    fi
 fi
 
 
@@ -60,7 +77,7 @@ shift
 # Get optional flags
 while (( "$#" )); do
    case $1 in
-      (uff|iff|osx|juropa|juropatest|jureca|juqueen)
+      (psi|uff|iff|osx|ubu)
         addplatform="$1"
         platform="PLATFORM=$1"
         shift
@@ -179,7 +196,39 @@ done
    compiled=false
    if [ $compile -eq 1 ]; then 
       echo -e '\n******* Spin-wave code compilation ***********'
-      cd ~/Dropbox/scripts/dispersion-program
+      
+        if [ $cmake -eq 1 ]; then
+            cd $source_folder
+            cd build
+            # rm -r *
+            
+            cmake ../
+            make | tee compilation_log.dat
+            # make $rule $platform $debug $filename $verbose | tee compilation_log.dat
+
+            if grep failed compilation_log.dat
+            then
+                exit
+            fi
+
+            if grep aborted compilation_log.dat
+            then
+                exit
+            fi
+
+            if grep Linking compilation_log.dat
+            then
+                cp $source_folder'/bin/main.exe'  $SWcode_executable
+                echo Executable moved to $SWcode_executable
+                compiled=true
+            fi
+            rm compilation_log.dat
+
+            cd - >/dev/null #not shows the path when going back to the working folder
+
+        else # if cmake=0
+            cd $source_folder
+            
       make $rule $platform $debug $filename $verbose | tee compilation_log.dat
 
         if grep failed compilation_log.dat
@@ -187,15 +236,21 @@ done
             exit
         fi
 
+if grep aborted compilation_log.dat
+            then
+                exit
+            fi
+
       line=$(head -n 1 compilation_log.dat)
       rm compilation_log.dat
       cd - >/dev/null #not shows the path when going back to the working folder
 
       if [[ ! $line == make* ]]
       then
-         cp ~/Dropbox/scripts/dispersion-program/bin/main.exe  $SWcode_executable
+         cp $source_folder'/bin/main.exe'  $SWcode_executable
          echo Executable moved to $SWcode_executable
          compiled=true
+fi
       fi
    fi
 
@@ -244,7 +299,11 @@ done
 
          #if the program has run successfully, make the copying and backups 
          if [ "$?" -eq "0" ]; then
+if [ $occupation -ne 1 ]; then
                 mv precession_$XX.dat disp_analy_$XX.dat disp_unfol_$XX.dat dispersion_$XX.dat dispersion_imag_$XX.dat latticExt_$XX.dat kpath_$XX.dat ine_intensities_$XX.dat outputfiles/
+else
+                    mv occupation_$XX.dat eigenvector_$XX.dat outputfiles/
+                fi                
 
             #Copying files to be check for modifications on the next run
             echo
@@ -291,9 +350,13 @@ done
 
    #--- Occupation number ----------------------------------------------
 
-   if [ $occupation -eq 1 ]; then
-      gnuplot occupation.gnu
-      open occupation.html
+   if [ $occupation -eq 1 ] && $runsuccess ; then
+        echo
+        echo "Plotting occupations ..."
+      gnuplot -e "specifier='$XX'" occupation.gnu
+      # open occupation.html
+open occupation_$XX.png
+        echo "Occupations plotted."
    fi 
 
    #--- Dispersion -----------------------------------------------------

@@ -72,19 +72,21 @@ endif
 #  Compiler                                        #
 ####################################################
 FC = ifort
+#FC = mpif90
 
 ####################################################
 #  Libraries                                       #
 ####################################################
-LLIBS =-mkl
-# LLIBS =-qmkl
+#LLIBS =-mkl
+LLIBS = -qmkl
 
 ####################################################
 #  Flags                                           #
 ####################################################
-FFLAGS =-O3 -xHost -heap-arrays
+#FFLAGS =-O3 -xHost -heap-arrays -fPIC
 # FFLAGS =
 # FFLAGS =-mcmodel=medium
+FFLAGS = -fopenmp -O3 -xHost
 
 ####################################################
 #  Preprocessor                                    #
@@ -102,14 +104,15 @@ endif
 ####################################################
 #  Module and Include folder                       #
 ####################################################
-FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
+#FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
 
 ####################################################
 #  Parallelization                                 #
 ####################################################
 # ifeq ($(PARALLEL),omp)
 LLIBS +=-qopenmp
-FFLAGS +=-qopenmp
+#FFLAGS +=-qopenmp
+FFLAGS +=-fopenmp
 # endif
 
 #=======================================================================
@@ -117,40 +120,17 @@ FFLAGS +=-qopenmp
 #=======================================================================
 
 ####################################################
-#                       Ubuntu                     #
+#                    PSI mpc2976                   #
 ####################################################
-ifeq ($(PLATFORM),ubu)
+ifeq ($(PLATFORM),psi)
 # Compiler
-FC = gfortran
+FC = ifort
 # Preprocessor
-CPP = 
+CPP =
 # Libraries
-LLIBS = -fopenmp -ffree-line-length-1000 -L/usr/lib -llapack -L/usr/lib -lblas
+LLIBS = -qmkl
 #Flags
-FFLAGS =-fopenmp -ffree-line-length-1000 -L/usr/lib -llapack -L/usr/lib -lblas
-endif
-####################################################
-#                       UFF                        #
-####################################################
-ifeq ($(PLATFORM),uff)
-# Compiler
-FC = mpif90
-# Preprocessor
-CPP = -fpp -D _UFF
-# Libraries
-LLIBS =-mkl -static-intel -L$(HOME)/lib -lnag
-#Flags
-FFLAGS =-O3 -xSSE4.2
-#Debugger
-ifeq ($(DEBUG),debug)
-FFLAGS =-CB -check all -check uninit -ftrapuv -debug all -traceback -g -warn all -O0
-endif
-FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
-# Parallelization
-ifeq ($(PARALLEL),omp)
-LLIBS +=-openmp
-FFLAGS +=-openmp
-endif
+FFLAGS = -fopenmp -O3 -xHost
 endif
 ####################################################
 #                       OSX                        #
@@ -176,6 +156,45 @@ FFLAGS +=-qopenmp
 endif
 endif
 ####################################################
+#                       Ubuntu                     #
+####################################################
+ifeq ($(PLATFORM),ubu)
+# Compiler
+#FC = gfortran
+FC = ifort
+# Preprocessor
+CPP = 
+# Libraries
+#LLIBS = -fopenmp -ffree-line-length-1000 -L/usr/lib -llapack -L/usr/lib -lblas
+LLIBS = -fopenmp -L/usr/lib -llapack -L/usr/lib -lblas -fPIE
+#Flags
+#FFLAGS =-fopenmp -ffree-line-length-1000 -L/usr/lib -llapack -L/usr/lib -lblas
+FFLAGS =-fopenmp -L/usr/lib -llapack -L/usr/lib -lblas -fPIE
+endif
+####################################################
+#                       UFF                        #
+####################################################
+ifeq ($(PLATFORM),uff)
+# Compiler
+FC = mpif90
+# Preprocessor
+CPP = -fpp -D _UFF
+# Libraries
+LLIBS =-mkl -static-intel -L$(HOME)/lib -lnag
+#Flags
+FFLAGS =-O3 -xSSE4.2
+#Debugger
+ifeq ($(DEBUG),debug)
+FFLAGS =-CB -check all -check uninit -ftrapuv -debug all -traceback -g -warn all -O0
+endif
+FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
+# Parallelization
+ifeq ($(PARALLEL),omp)
+LLIBS +=-openmp
+FFLAGS +=-openmp
+endif
+endif
+####################################################
 #                       IFF                        #
 ####################################################
 ifeq ($(PLATFORM),iff)
@@ -198,100 +217,9 @@ LLIBS +=-openmp
 FFLAGS +=-openmp
 endif
 endif
-####################################################
-#                     JUROPA                       #
-####################################################
-ifeq ($(PLATFORM),juropa)
-# Compiler
-FC = mpif90
-# Preprocessor
-CPP = -fpp
-# Libraries
-LLIBS =-mkl -L$(HOME)/lib -lkibe
-#Flags
-FFLAGS =-O3 -xSSE4.2
-# Debugger
-ifeq ($(DEBUG),debug)
-FFLAGS =-CB -check all -check uninit -ftrapuv -debug all -traceback -g -warn all -O0
-endif
+
 FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
-# Parallelization
-ifeq ($(PARALLEL),omp)
-LLIBS +=-openmp
-FFLAGS +=-openmp
-endif
-endif
-####################################################
-#                   JUROPATEST                     #
-####################################################
-ifeq ($(PLATFORM),juropatest)
-# Compiler
-FC = mpif90
-# Preprocessor
-CPP = -fpp
-# Libraries
-LLIBS =-mkl -L$(HOME)/lib -lkibe
-#Flags
-FFLAGS =-O3 -xSSE4.2
-#Debugger
-ifeq ($(DEBUG),debug)
-FFLAGS =-CB -check all -check uninit -ftrapuv -debug all -traceback -g -warn all -O0
-endif
-FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
-# Parallelization
-ifeq ($(PARALLEL),omp)
-LLIBS +=-openmp
-FFLAGS +=-openmp
-endif
-endif
-####################################################
-#                     JURECA                       #
-####################################################
-ifeq ($(PLATFORM),jureca)
-# Compiler
-FC = $(PREP) mpif90
-# Preprocessor
-CPP = -fpp
-# Libraries
-# LLIBS =-mkl -L$(HOME)/lib -lkibe
-LLIBS = -mkl -I$(ND)/nag_interface_blocks -lnag
-#Flags
-FFLAGS =-O3 -xHost -qoverride-limits
-#Debugger
-ifeq ($(DEBUG),debug)
-FFLAGS =-CB -check all -check uninit -ftrapuv -debug all -traceback -g -warn all -O0
-endif
-FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
-# Parallelization
-ifeq ($(PARALLEL),omp)
-LLIBS +=-qopenmp
-FFLAGS +=-qopenmp
-endif
-endif
-####################################################
-#                    JUQUEEN                       #
-####################################################
-ifeq ($(PLATFORM),juqueen)
-# Compiler
-FC = $(PREP) mpif90
-# Preprocessor
-CPP = -WF,-D_JUQUEEN
-# Libraries
-LLIBS =$(ND)/lib/libnag_essl.a -L/bgsys/local/lib -lesslbg
-#LLIBS =-L/opt/ibmmath/essl/5.1/lib64 -lesslbg -L$(HOME)/lib -lkibe
-#Flags
-FFLAGS =-O3 -qstrict -qnoescape -qnosave #-O5 -qarch=qp -qtune=qp
-#Debugger
-ifeq ($(DEBUG),debug)
-FFLAGS =-C -g -qfullpath -O0 -qflttrap=enable:invalid:overflow:underflow:zerodivide -qinitauto=7FF7FFFF -qnoescape -qkeepparm
-endif
-FFLAGS += -qmoddir=$(OBJDIR)/ -I$(OBJDIR)/
-# Parallelization
-ifeq ($(PARALLEL),omp)
-LLIBS +=-qsmp=omp -qthreaded
-FFLAGS +=-qsmp=omp -qthreaded
-endif
-endif
+
 ####################################################
 # Linking                                          #
 ####################################################
