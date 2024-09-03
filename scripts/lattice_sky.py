@@ -105,7 +105,7 @@ for i, position in enumerate(positions):
     # if i < 64 : 
     if -aa < position[0] < aa and -bb < position[1] < bb: # for the structure vs B field
         # print (position[0])
-        size_arrow = np.square( np.dot(directions[i], directions[i]) )
+        size_arrow = np.linalg.norm( directions[i])
         gr3.drawspins(4*positions[i], directions[i], colors[i],
                       cone_radius=0.28*rescale*size_arrow, cylinder_radius=0.15*rescale*size_arrow,
                       cone_height=0.6*rescale*size_arrow, cylinder_height=0.7*rescale*size_arrow)

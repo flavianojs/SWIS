@@ -218,13 +218,16 @@ done
 
             if grep Linking compilation_log.dat
             then
-                cp $source_folder'/bin/main.exe'  $SWcode_executable
-                echo Executable moved to $SWcode_executable
-                compiled=true
-            fi
-            rm compilation_log.dat
+                rm compilation_log.dat
+                cd - >/dev/null #not shows the path when going back to the working folder
 
-            cd - >/dev/null #not shows the path when going back to the working folder
+                cp $source_folder/bin/main.exe  $SWcode_executable
+                echo Executable moved from: $source_folder/bin/main.exe to: $SWcode_executable
+                compiled=true
+            else
+                rm compilation_log.dat
+                cd - >/dev/null #not shows the path when going back to the working folder
+            fi
 
         else # if cmake=0
             cd $source_folder
