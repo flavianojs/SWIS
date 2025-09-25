@@ -17,6 +17,8 @@ scale_output='inputfiles/pair_temp.txt'
 
 gnuscript="disp_unfol_multi.gnu"
 
+SWIS_path="/Users/flavianojs/Downloads/Spinwaves-dispersion"
+
 #--- Setup environment ------------------------------------------
 
 export OMP_NUM_THREADS=1
@@ -163,7 +165,7 @@ done
     compiled=false
     if [ $compile -eq 1 ]; then 
         echo -e '\n******* Spin-wave code compilation ***********'
-        cd ~/Dropbox/scripts/dispersion-program
+        cd $SWIS_path
         make $rule $platform $debug $filename $verbose | tee compilation_log.dat
 
         line=$(head -n 1 compilation_log.dat)
@@ -172,7 +174,7 @@ done
 
         if [[ ! $line == make* ]]
         then
-            cp ~/Dropbox/scripts/dispersion-program/bin/main.exe  $SWcode_executable
+            cp $SWIS_path/bin/main.exe  $SWcode_executable
             echo Executable moved to $SWcode_executable
             compiled=true
         fi
