@@ -227,7 +227,7 @@ contains
 
       !Determining the number of nn interactions inputed
       do i=1, 20
-         if( abs(all_nndist(i)) < zero_toler ) then
+         if( abs(all_Jnn(i)) < zero_toler ) then
             n_nndists = i - 1
             exit
          end if
@@ -313,7 +313,7 @@ contains
          ! If only one mag mom was given, use it for all sites
          if( i==2 ) then
             mu_s_array = mu_s(1)
-         ! If no mag mom was inputed
+         ! If no mag mom was inputedac
          else if( i==1 ) then
             j = FINDLOC(mu_s_vec, 0.123456789d0, 1)
             if( j==num_atoms_small_basis+1 ) then
@@ -674,7 +674,10 @@ contains
                if( i > counter ) exit 
                print *, basis(i,:)
             end do
-         else 
+
+            if( n_nndists .ne. 0) call determine_nndist_list(a1, a2, a3, basis, all_nndist, n_nndists)
+
+         else ! spirit_input_given == .false.
             !Reading the atom positions. In the 'spirit' mode, the atom positions are read from a separate file
             inquire(file=latticefile, exist=file_exists)
             if(file_exists) then
@@ -698,6 +701,8 @@ contains
                end if
             end do
          end if
+
+         if( n_nndists .ne. 0) call determine_nndist_list(a1, a2, a3, basis, all_nndist, n_nndists)
 
          !Reading the interaction pairs
          if( n_nndists == 0 ) then ! If the interaction is NOT to be found by only measuring the n.n distances
@@ -977,6 +982,62 @@ contains
       end do
       !end: computing rotation matrixes
    end subroutine initialization
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   subroutine determine_nndist_list(a1, a2, a3, basis, all_nndist, n_nndists)
+      !Determine the nearest neighbor distances
+      implicit none
+      real(kind=pc), intent(in) :: a1(3), a2(3), a3(3), basis(:,:)
+      integer, intent(in) :: n_nndists
+      real(kind=pc), intent(out) :: all_nndist(1000)
+      real(kind=pc) :: all_nndist_aux(1000)=0.d0
+      integer :: i, j, k, l, m, n, info, counter
+      real(kind=pc) :: vector(3), norm
+      logical :: flag1
+
+      external DLASRT
+
+      print *, "Determining list of nn distances:"
+
+      counter = 0
+      do i=-1,1
+      do j=-1,1
+      do k=-1,1
+         do l = 1, naucell
+            vector = i*a1 + j*a2 + k*a3 + basis(l,:)
+            ! print *, "vector: ", vector
+
+            norm = norm2( vector )
+            if ( norm < zero_toler ) cycle
+            ! print *, "norm: ", norm
+
+            ! if norm is not in all_nndist_aux, add it
+            flag1 = .false.
+            do n = 1, counter
+               if( abs(norm - all_nndist_aux(n)) < zero_toler ) then
+                  flag1 = .true.
+                  exit
+               end if
+            end do
+            if( flag1 .eq. .false.) then
+               counter = counter + 1
+               all_nndist_aux(counter) = norm
+            end if
+         end do
+      end do
+      end do
+      end do
+   
+      ! Sorting
+      call DLASRT('I', counter, all_nndist_aux(1:counter), info)
+      if( info .ne. 0 ) then
+         print *, 'Sorting failed.'
+      end if
+      all_nndist(1:n_nndists) = all_nndist_aux(1:n_nndists)
+      ! print *, 'all_nndist_aux:', all_nndist_aux(1:counter)
+      print *, 'all_nndist:', all_nndist(1:n_nndists)
+
+   end subroutine determine_nndist_list
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine crystallattice()
@@ -2109,6 +2170,7 @@ contains
       !Storage file openning
       formt="dispersion_"//trim(suffix)//".dat"
       open( unit=90, file=formt )
+      write( unit=90, fmt="(a)") "#   q (2pi/1)   energy n-th mode (meV)   energy n-1-th mode (meV)    ..." 
 
       formt="dispersion_imag_"//trim(suffix)//".dat"
       open( unit=94, file=formt )
