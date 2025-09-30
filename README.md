@@ -19,18 +19,18 @@ It was written and developed by **Flaviano José dos Santos**.
 
 If SWIS was useful in any way for your research, please cite:
 
-dos Santos, F. J. et al., Phys. Rev. B 97, 024431 (2018).
+dos Santos, F. J. et al., Phys. Rev. B 97, 024431 (2018)\
 https://doi.org/10.1103/PhysRevB.97.024431
 
-dos Santos, F. J., PhD Thesis, RWTH Aachen University & Forschungszentrum Jülich GmbH (2019)
-DOI: 10.18154/RWTH-2020-01879
+dos Santos, F. J., PhD Thesis, RWTH Aachen University & Forschungszentrum Jülich GmbH (2019)\
+DOI: 10.18154/RWTH-2020-01879\
 https://publications.rwth-aachen.de/record/782441
 
 
 ## Contact
-*Flaviano José Marchiori dos Santos, Dr. rer. nat.*
-Researcher at the Department of Theoretical Physics (COTEO)
-Brazilian Center for Research in Physics (CBPF)
-Ministry of Science, Technology, and Innovation (MCTI)
-Rua Dr.Xavier Sigaud, 150 - Urca, 22290-180, Rio de Janeiro - RJ, Brazil
+*Flaviano José Marchiori dos Santos, Dr. rer. nat.*\
+Researcher at the Department of Theoretical Physics (COTEO)\
+Brazilian Center for Research in Physics (CBPF)\
+Ministry of Science, Technology, and Innovation (MCTI)\
+Rua Dr.Xavier Sigaud, 150 - Urca, 22290-180, Rio de Janeiro - RJ, Brazil\
 E-mail: flaviano@cbpf.br
