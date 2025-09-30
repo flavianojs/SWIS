@@ -28,7 +28,7 @@ https://publications.rwth-aachen.de/record/782441
 
 
 ## Contact
-*Flaviano José Marchiori dos Santos, Dr. rer. nat.*\
+**Flaviano José Marchiori dos Santos, Dr. rer. nat.**\
 Researcher at the Department of Theoretical Physics (COTEO)\
 Brazilian Center for Research in Physics (CBPF)\
 Ministry of Science, Technology, and Innovation (MCTI)\
