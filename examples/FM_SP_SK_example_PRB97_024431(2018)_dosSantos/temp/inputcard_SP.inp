@@ -1,0 +1,76 @@
+!!!!!!!!!!!!!!!!! Simulation control board (Parameters) !!!!!!!!!!!!!
+&input
+dims = 1 1 0, !Determines the dimension of the problem. Each dimension shall be filled by 1 or 0
+npt = 300, naucell = 1, ncellpdim = 2,! n. of k-point in the disperion; n. of atom in the unit cell; number of real space unit cell for the Fourier transformation
+latcons = 1.d0, nndist = 1.d0,
+spirit = .true.,
+!Unfolding:
+unfolding = .true.,
+nptomega = 100,
+maxomega =  12.0, minomega = 0, eta=1.5d-1,
+
+a1 =  1.0d0  0.0d0                0.0d0,   !In unit of the lattice constant, 
+a2 =  0.5d0  0.866025403784439d0  0.0d0,   ! i.e., a1 will become later a1=a1*latcons
+a3 =  0.0d0  0.0d0                1.0d0, 
+
+!               phi       theta 
+polarization1 = 0.0d0 1.57079632679490d0,               !x
+polarization2 = 1.57079632679490d0 1.57079632679490d0,  !y
+polarization3 = 0.d0 0.d0,                              !z  
+
+Jnn = 0.d0, Dnn = 0.0d0,  ! n_nndists = 1
+ 
+muB = 1.0
+hm0 = 0.d0,
+!muB = 5.7883818012d-2, !Bohr magneton in meV. Set to 1.d0 if want to input 'hmm0' direct in meV.
+!hm0 = 22d0, 
+hmagunitvec = 0.d0 0.d0 1.d0,
+mu_s = 1.0, ! mag. mom.
+gamma = 1.d0, ! S = mu_s / gamma
+J_D_scaling = 1.0d0, ! For the difference between in the inner hamiltonian and the JMcode/Spirit one.
+kaniunitvec = 0.d0  0.d0 1.d0, kanis =  0.01d0, ! k = knais . g^2 / mu_s^2
+kaniunitvec2= 1.d0  0.d0 0.d0, kanis2=  0.00d0, ! k = knais . g^2 / mu_s^2
+
+spirit_old_method=.true.
+spirit = .true.,
+toprint = .false.,
+analytics = .false.,
+calc_occup = .false., 
+mode = 11, !For which mode should the occup. numb. be calculated
+spin_dyn = 1,
+internalunit = .true.,
+plot_supercell_BZ = .false.,
+
+! neutron_factor = .false.,
+! circular_cartesian_convertion_factor = .true.,
+spirit_input = "input_SP.cfg"
+/
+
+&input2
+!The high symmetry points P=(p1,p2,p3,p4) are given via the matrix M(4x4), where P=Mb, and b=(b1,b2,b3,0), the reciprocal lattice vectors 
+syptsMataux =
+
+ 	              0.0   -0.5  0.0
+				  0.0    0.0  0.0
+ 				  0.0    0.5  0.0
+				  0.333333333333 0.66666666666 0.0 
+				  1.0    1.0  0.0
+				  1.2    1.1  0.0
+				  1.2    1.6  0.0
+
+            ,
+
+basisname = "spirit_output/spinconfig_SP_final_qy.ovf",
+pairfile = "inputfiles/pair_SP.txt",
+latticefile = "inputfiles/lattice.dat"
+/
+
+&input3
+!For the ground state program
+itmax   = 8000000, 
+epsi    = 1.d-7,
+step    = 0.05d0,
+rinit   = .true.,
+itwrite = .true. 
+/
+

@@ -71,7 +71,7 @@ endif
 ####################################################
 #  Compiler                                        #
 ####################################################
-FC = ifort
+FC = ifx
 #FC = mpif90
 
 ####################################################
@@ -124,7 +124,7 @@ FFLAGS +=-fopenmp
 ####################################################
 ifeq ($(PLATFORM),psi)
 # Compiler
-FC = ifort
+FC = ifx
 # Preprocessor
 CPP =
 # Libraries
@@ -161,7 +161,7 @@ endif
 ifeq ($(PLATFORM),ubu)
 # Compiler
 #FC = gfortran
-FC = ifort
+FC = ifx
 # Preprocessor
 CPP = 
 # Libraries

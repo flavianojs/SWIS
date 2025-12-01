@@ -138,7 +138,7 @@ contains
       end if
    end do
 
-   if( l1 == -1 ) error stop("Error: Subroutine 'decomposition' did not identify an atom in the basis with the required position.")
+   if( l1 == -1 ) error stop ("Error: Subroutine 'decomposition' did not identify an atom in the basis with the required position.")
 
    end subroutine decomposition
 
@@ -479,7 +479,7 @@ contains
       
       !To calculate the k path where the dispersion will be calculated
       dim = sum(dims)
-      if( norm2(a1)<zero_toler .or. norm2(a2)<zero_toler .or. norm2(a3)<zero_toler ) error stop("Error: Please make sure that none of the primitive vectors, a1, a2, and a3 are null in the 'inputcard_XX.inp'. Stopping.")
+      if( norm2(a1)<zero_toler .or. norm2(a2)<zero_toler .or. norm2(a3)<zero_toler ) error stop ("Error: Please make sure that none of the primitive vectors, a1, a2, and a3 are null in the 'inputcard_XX.inp'. Stopping.")
       amat(1,:) = a1 !/latcons*n_basis_cells(1)
       amat(2,:) = a2 !/latcons*n_basis_cells(2)
       amat(3,:) = a3 !/latcons*n_basis_cells(3)
@@ -559,7 +559,7 @@ contains
          end do
 
          if( spirit_input_given ) then
-            if( counter .ne. naucell .and. counter .ne. num_atoms_small_basis ) error stop('Error: Number of spins read in the spin configuration file (possibly *.ovf) does not match the num. of atoms in the primitive unit cell nor the simulation box. Stopping.')
+            if( counter .ne. naucell .and. counter .ne. num_atoms_small_basis ) error stop ("Error: Number of spins read in the spin configuration file (possibly *.ovf) does not match the num. of atoms in the primitive unit cell nor the simulation box. Stopping.")
 
             if( counter == num_atoms_small_basis ) then
 
@@ -574,7 +574,7 @@ contains
                      Sy = Sy_aux * Si_aux * (mu_s_array(k)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
                      Sz = Sz_aux * Si_aux * (mu_s_array(k)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
                      Si(k) = norm2([Sx, Sy, Sz])
-                     if( Si(k) < zero_toler ) error stop('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
+                     if( Si(k) < zero_toler ) error stop ('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
                      anglestheta(k) = acos( Sz/Si(k))
 
                      if( Si(k) < zero_toler ) then
@@ -596,7 +596,7 @@ contains
                   Sy = Sy_aux * Si_aux * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
                   Sz = Sz_aux * Si_aux * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
                   Si(i) = norm2([Sx, Sy, Sz])
-                  if( Si(i) < zero_toler ) error stop('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
+                  if( Si(i) < zero_toler ) error stop ('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
                   anglestheta(i) = acos( Sz/Si(i))
 
                   if( Si(i) < zero_toler ) then
@@ -609,7 +609,7 @@ contains
             end if
 
          else ! if spirit input is NOT given 
-            if( counter .ne. naucell ) error stop('Error: Number of spins read in the spin configuration file (possibly in *.ovf) does not match the num. of atoms in the unit cell. Stopping.')
+            if( counter .ne. naucell ) error stop ('Error: Number of spins read in the spin configuration file (possibly in *.ovf) does not match the num. of atoms in the unit cell. Stopping.')
 
             do i = 1, naucell
                Sx_aux = Sx_vec(i)
@@ -620,7 +620,7 @@ contains
                Sy = Sy_aux * Si_aux * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
                Sz = Sz_aux * Si_aux * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
                Si(i) = norm2([Sx, Sy, Sz])
-               if( Si(i) < zero_toler ) error stop('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
+               if( Si(i) < zero_toler ) error stop ('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
                anglestheta(i) = acos( Sz/Si(i))
 
                if( Si(i) < zero_toler ) then
@@ -645,7 +645,7 @@ contains
          !    Sy = Sy_aux * Si_aux * (mu_s_array(i)/gamma) !+ hm0/(2*(kanis+20))               !This is the analytical solution for the spin config. for external field perpendicular to the mag. mom...
          !    Sz = Sz_aux * Si_aux * (mu_s_array(i)/gamma) !* cos( asin( hm0/(2*(kanis+20)) ) )
          !    Si(i) = norm2([Sx, Sy, Sz])
-         !    if( Si(i) < zero_toler ) error stop('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
+         !    if( Si(i) < zero_toler ) error stop ('Error: |S_i|=0, please check the input mag. moms. (in inputcard_XX.inp) and/or the spin configuration vectors (possibily in *.ovf).')
          !    anglestheta(i) = acos( Sz/Si(i))
 
          !    if( Si(i) < zero_toler ) then
@@ -1019,7 +1019,7 @@ contains
                   exit
                end if
             end do
-            if( flag1 .eq. .false.) then
+            if( flag1 .eqv. .false.) then
                counter = counter + 1
                all_nndist_aux(counter) = norm
             end if
@@ -1351,7 +1351,7 @@ contains
             l1 = ijda_db_dc(i,1)
             l2 = ijda_db_dc(i,2)
 
-            if( 1 > l1 > naucell .or. 1 > l2 > naucell  ) error stop("Error: Atom indeces failed to test: 1 <= [l1, l2] <= 'naucell'. Stopping.")
+            if( (1 > l1 .and. l1 > naucell) .or. (1 > l2 .and. l2 > naucell) ) error stop ("Error: Atom indeces failed to test: 1 <= [l1, l2] <= 'naucell'. Stopping.")
             
             do n = 1, ncell
                r0jaux = ijda_db_dc(i,3)*a1 + ijda_db_dc(i,4)*a2 + ijda_db_dc(i,5)*a3 
@@ -1362,7 +1362,7 @@ contains
             end do
             ! if(l1==2 .and. l2==2 .and. j==116) print "(a,8f9.4)" , "J0j    ", Jtemp(1,1), Jtemp(1,2), Jtemp(2,1), Jtemp(2,2)  !For test, to be deleted
 
-            if( 1 > j > ncell  ) error stop("Error: Unit cell index failed the test: 1 <= j <= 'ncell'. Stopping.")
+            if( 1 > j .and. j > ncell ) error stop ("Error: Unit cell index failed the test: 1 <= j <= 'ncell'. Stopping.")
 
             n_inter_per_atom(l1) = n_inter_per_atom(l1) + 1
 
@@ -2301,14 +2301,16 @@ contains
          larger = norm2(big_b2)
       end if
 
-      do i=-1,1; do j=-1,1
-         k = (big_b1*i + big_b2*j)
-         if( norm2(k) <= larger*1.2 ) then
-            prevk = [-k(2), k(1), k(3)]
-            write(333, fmt=*) 0.5*k - 0.5*larger*prevk/norm2(prevk)   
-            write(333, fmt=*) 0.5*k + 0.5*larger*prevk/norm2(prevk)   
-            write(333, fmt=*) "# ^ edge of the 1st BZ"
-         end if
+      do m=-1,1; do n=-1,1
+         do i=-1,1; do j=-1,1
+            k = (big_b1*i + big_b2*j)
+            if( norm2(k) <= larger*1.2 ) then
+               prevk = [-k(2), k(1), k(3)]
+               write(333, fmt=*) 0.5*k - 0.5*larger*prevk/norm2(prevk) + (big_b1*m + big_b2*n)   
+               write(333, fmt=*) 0.5*k + 0.5*larger*prevk/norm2(prevk) + (big_b1*m + big_b2*n)  
+               write(333, fmt=*) "# ^ edge of the 1st BZ"
+            end if
+         end do; end do
       end do; end do
    end subroutine outputdata
 
