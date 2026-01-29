@@ -22,7 +22,7 @@ scale_output='inputfiles/pair_temp.txt'
 
 gnuscript=$scripts"plot_dispersion.gnu"
 
-export OMP_NUM_THREADS=1
+export OMP_NUM_THREADS=8
 # ulimit -s unlimited
 
 host=`hostname`
@@ -67,7 +67,7 @@ else
     if [ $occupation -eq 1 ]; then
         export OMP_NUM_THREADS=1
     else
-        export OMP_NUM_THREADS=14
+        export OMP_NUM_THREADS=$OMP_NUM_THREADS
     fi
 fi
 
