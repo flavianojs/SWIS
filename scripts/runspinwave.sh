@@ -199,6 +199,7 @@ done
       
         if [ $cmake -eq 1 ]; then
             cd $source_folder
+	    mkdir -p build
             cd build
             # rm -r *
             

@@ -40,7 +40,8 @@ endif()
 # Adding compiler suffix:
 # INTEL
 if(COMPILER MATCHES intel)
-  set(CMAKE_Fortran_COMPILER mpiifort)
+  set(CMAKE_Fortran_COMPILER ifx)
+  # set(CMAKE_Fortran_COMPILER mpiifort)
   set(COMPILERSUFFIX _intel)
   message("Using Intel Compiler")
 endif()
@@ -70,7 +71,7 @@ add_executable(${PROJECT_EXE} ${SOURCES})
 # Set (main) language
 set_property(TARGET ${PROJECT_EXE} PROPERTY LINKER_LANGUAGE Fortran)
 # Set location for binary
-set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
+# set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 

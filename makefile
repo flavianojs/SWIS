@@ -1,277 +1,147 @@
-SHELL = /bin/sh
-####################################################
-####################################################
-#             SHE makefile
-####################################################
-#
-# to compile use the following options:
-#
-# make          		       -  default compilation using mpif90
-#
-# make PLATFORM=(location) -  uses specific compiler options
-# Configured locations:
-# uff, iff, osx, juropa, juropatest, jureca, juqueen
-#
-# make DEBUG=debug         -  uses debug flags
-#
-# make PARALLEL=omp        -  uses openmp
-#
-# make FILE=(filename.exe) -  creates executable (filename.exe)
-#
-# make clean    			     -  removes *.o *.mod *__genmod* *.exe files
-#
-# make cleanall  			     -  also removes dependency files .dep and executable
-#
-# make recompile  			   -  removes all objects and modules and recompile
-#
-####################################################
-# Filename and folders configuration               #
-####################################################
-SRCDIR = ./source
-BINDIR = ./bin
-OBJDIR = ./build$(addprefix /,$(PLATFORM))
-ifdef FILE
-	FILENAME = $(BINDIR)/$(FILE)
-else
-	FILENAME = $(BINDIR)/main.exe
-endif
+# Compiler settings
+FC := ifx
+FFLAGS := -fopenmp -O3 -xHost
+LDFLAGS := -qmkl -fopenmp  # Removed -llapack -lblas as they're included in -qmkl
 
-####################################################
-# Suffixes used in this makefile                   #
-####################################################
-.SUFFIXES:
-.SUFFIXES: .f90 .o .mod .dep
+# Directories
+SRC_DIR := source
+BUILD_DIR := build
+OBJ_DIR := $(BUILD_DIR)/obj
+BIN_DIR := $(BUILD_DIR)/
 
-####################################################
-# Source files                                     #
-####################################################
-SRC =$(wildcard $(SRCDIR)/*.f90)
+# Specific source files (in compilation order)
+MOD_GLOBAL := $(SRC_DIR)/mod_global.f90
+BOGOLIUBOV := $(SRC_DIR)/bogoliubov_transf.f90
+MAIN_PROGRAM := $(SRC_DIR)/spinwavesNonCol.f90
 
-####################################################
-# Objects to compile                               #
-####################################################
-OBJ = $(addprefix $(OBJDIR)/,$(notdir $(SRC:.f90=.o)))
+# Object files
+OBJ_GLOBAL := $(OBJ_DIR)/mod_global.o
+OBJ_BOGOLIUBOV := $(OBJ_DIR)/bogoliubov_transf.o
+OBJ_MAIN := $(OBJ_DIR)/spinwavesNonCol.o
 
-####################################################
-# Dependency files                                #
-####################################################
-DEP = $(OBJ:.o=.dep)
+# Module files (.mod) - these will be created in OBJ_DIR
+MOD_GLOBAL_MOD := $(OBJ_DIR)/mod_global.mod
+MOD_BOGOLIUBOV_MOD := $(OBJ_DIR)/bogoliubov_transf.mod
 
-####################################################
-# Performance tool                                #
-####################################################
-ifeq ($(PERFORM),scalasca)
-	PREP = scorep
-endif
+# All object files
+OBJS := $(OBJ_GLOBAL) $(OBJ_BOGOLIUBOV) $(OBJ_MAIN)
 
-#=======================================================================
-#============================ DEFAULT VALUES ===========================
-#=======================================================================
+# Target executable - named main.exe
+TARGET := $(BIN_DIR)/main.exe
 
-####################################################
-#  Compiler                                        #
-####################################################
-FC = ifx
-#FC = mpif90
+# Default target
+all: $(BUILD_DIR) $(TARGET)
 
-####################################################
-#  Libraries                                       #
-####################################################
-#LLIBS =-mkl
-LLIBS = -qmkl
+# Create build directories first
+$(BUILD_DIR):
+	@echo "Creating build directories..."
+	mkdir -p $(OBJ_DIR)
+	mkdir -p $(BIN_DIR)
 
-####################################################
-#  Flags                                           #
-####################################################
-#FFLAGS =-O3 -xHost -heap-arrays -fPIC
-# FFLAGS =
-# FFLAGS =-mcmodel=medium
-FFLAGS = -fopenmp -O3 -xHost
+# Link all object files to create executable
+$(TARGET): $(OBJS)
+	$(FC) $(LDFLAGS) $(OBJS) -o $@
+	@echo "Build complete! Executable created at: $@"
+	@echo "Compiler: Intel Fortran (ifx) with OpenMP and MKL"
 
-####################################################
-#  Preprocessor                                    #
-####################################################
-# CPP = -fpp
-CPP = 
+# Main program depends on both modules
+$(OBJ_MAIN): $(MAIN_PROGRAM) $(MOD_GLOBAL_MOD) $(MOD_BOGOLIUBOV_MOD)
+	$(FC) $(FFLAGS) -module $(OBJ_DIR) -c $< -o $@
 
-####################################################
-#  Debugger Flags                                  #
-####################################################
-ifeq ($(DEBUG),debug)
-FFLAGS =-CB -check all -check uninit -ftrapuv -debug all -traceback -g -warn all -O0
-endif
+# bogoliubov_transf depends on mod_global
+$(OBJ_BOGOLIUBOV): $(BOGOLIUBOV) $(MOD_GLOBAL_MOD)
+	$(FC) $(FFLAGS) -module $(OBJ_DIR) -c $< -o $@
 
-####################################################
-#  Module and Include folder                       #
-####################################################
-#FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
+# mod_global (independent module)
+$(OBJ_GLOBAL): $(MOD_GLOBAL) | $(BUILD_DIR)
+	$(FC) $(FFLAGS) -module $(OBJ_DIR) -c $< -o $@
 
-####################################################
-#  Parallelization                                 #
-####################################################
-# ifeq ($(PARALLEL),omp)
-LLIBS +=-qopenmp
-#FFLAGS +=-qopenmp
-FFLAGS +=-fopenmp
-# endif
+# Module files are created during compilation
+# These rules ensure dependencies work correctly
+$(MOD_GLOBAL_MOD): $(OBJ_GLOBAL)
+	@touch $@  # Module file is created during compilation, just update timestamp
 
-#=======================================================================
-#========================== LOCATION SPECIFIC ==========================
-#=======================================================================
+$(MOD_BOGOLIUBOV_MOD): $(OBJ_BOGOLIUBOV)
+	@touch $@  # Module file is created during compilation, just update timestamp
 
-####################################################
-#                    PSI mpc2976                   #
-####################################################
-ifeq ($(PLATFORM),psi)
-# Compiler
-FC = ifx
-# Preprocessor
-CPP =
-# Libraries
-LLIBS = -qmkl
-#Flags
-FFLAGS = -fopenmp -O3 -xHost
-endif
-####################################################
-#                       OSX                        #
-####################################################
-ifeq ($(PLATFORM),osx)
-# Compiler
-FC = mpif90
-# Preprocessor
-CPP = -fpp
-# Libraries
-LLIBS =-mkl -L$(HOME)/lib -lkibe
-#Flags
-FFLAGS =-O3 -xHost -qoverride-limits #-guide -parallel # -vec-threshold0
-#Debugger
-ifeq ($(DEBUG),debug)
-FFLAGS =-CB -check all -check uninit -ftrapuv -debug all -traceback -g -warn all -O0
-endif
-FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
-# Parallelization
-ifeq ($(PARALLEL),omp)
-LLIBS +=-qopenmp
-FFLAGS +=-qopenmp
-endif
-endif
-####################################################
-#                       Ubuntu                     #
-####################################################
-ifeq ($(PLATFORM),ubu)
-# Compiler
-#FC = gfortran
-FC = ifx
-# Preprocessor
-CPP = 
-# Libraries
-#LLIBS = -fopenmp -ffree-line-length-1000 -L/usr/lib -llapack -L/usr/lib -lblas
-LLIBS = -fopenmp -L/usr/lib -llapack -L/usr/lib -lblas -fPIE
-#Flags
-#FFLAGS =-fopenmp -ffree-line-length-1000 -L/usr/lib -llapack -L/usr/lib -lblas
-FFLAGS =-fopenmp -L/usr/lib -llapack -L/usr/lib -lblas -fPIE
-endif
-####################################################
-#                       UFF                        #
-####################################################
-ifeq ($(PLATFORM),uff)
-# Compiler
-FC = mpif90
-# Preprocessor
-CPP = -fpp -D _UFF
-# Libraries
-LLIBS =-mkl -static-intel -L$(HOME)/lib -lnag
-#Flags
-FFLAGS =-O3 -xSSE4.2
-#Debugger
-ifeq ($(DEBUG),debug)
-FFLAGS =-CB -check all -check uninit -ftrapuv -debug all -traceback -g -warn all -O0
-endif
-FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
-# Parallelization
-ifeq ($(PARALLEL),omp)
-LLIBS +=-openmp
-FFLAGS +=-openmp
-endif
-endif
-####################################################
-#                       IFF                        #
-####################################################
-ifeq ($(PLATFORM),iff)
-# Compiler
-FC = mpiifort
-# Preprocessor
-CPP = -fpp
-# Libraries
-LLIBS =-mkl -L$(HOME)/lib -lnag
-# Flags
-FFLAGS =-O3 -xHost
-# Debugger
-ifeq ($(DEBUG),debug)
-FFLAGS =-CB -check all -check uninit -ftrapuv -debug all -traceback -g -warn all -O0
-endif
-FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
-# Parallelization
-ifeq ($(PARALLEL),omp)
-LLIBS +=-openmp
-FFLAGS +=-openmp
-endif
-endif
+# Clean build files
+clean:
+	@echo "Cleaning build files..."
+	rm -rf $(BUILD_DIR)
 
-FFLAGS += -module $(OBJDIR)/ -I$(OBJDIR)/
+# Clean and rebuild
+rebuild: clean all
 
-####################################################
-# Linking                                          #
-####################################################
-all: $(FILENAME)
+# Run the program
+run: all
+	@echo "Running main.exe..."
+	@echo "==================="
+	./$(TARGET)
 
-$(FILENAME): $(OBJ)
-	@echo Creating executable $(addprefix $(BINDIR)/,$(notdir $@)) $(and $(strip $(DEBUG) $(PARALLEL) $(PERFORM)), with $(strip $(DEBUG) $(PARALLEL) $(PERFORM)))
-	@$(FC) $^ -o $@ $(LLIBS)
+# Show build info
+info:
+	@echo "Intel Fortran Build Information"
+	@echo "==============================="
+	@echo "Compiler: $(FC)"
+	@echo "Compile flags: $(FFLAGS)"
+	@echo "Link flags: $(LDFLAGS)"
+	@echo "Module directory: $(OBJ_DIR)"
+	@echo ""
+	@echo "Source files:"
+	@echo "  1. $(MOD_GLOBAL) (module)"
+	@echo "  2. $(BOGOLIUBOV) (module, depends on mod_global)"
+	@echo "  3. $(MAIN_PROGRAM) (main program)"
+	@echo ""
+	@echo "Target executable: $(TARGET)"
+	@echo "Build directory: $(BUILD_DIR)"
 
-$(OBJDIR)/%.o $(OBJDIR)/%.mod: $(SRCDIR)/%.f90
-	@echo Compiling file $(addprefix $(SRCDIR)/,$(notdir $<)) to $(addprefix $(OBJDIR)/,$(notdir $(patsubst %.f90,%.o,$<))) $(and $(strip $(DEBUG) $(PARALLEL) $(PERFORM)), with $(strip $(DEBUG) $(PARALLEL) $(PERFORM)))
-	@$(FC) $(FFLAGS) $(CPP) -c $< -o $(addprefix $(OBJDIR)/,$(notdir $(patsubst %.f90,%.o,$<)))
+# Test compilation (compile only)
+compile: $(BUILD_DIR) $(OBJS)
+	@echo "Compilation successful! Object files in $(OBJ_DIR)"
 
-####################################################
-# Dependencies                                     #
-####################################################
-# $(OBJDIR)/%.dep: $(SRCDIR)/%.f90 f90_mod_deps.py
-# 	@echo Building dependency of file $(addprefix $(SRCDIR)/,$(notdir $<))
-# 	@./f90_mod_deps.py -o $@ -d "(mod_.*)" -D "$(OBJDIR)/\1.mod" -m "(.*)" -M "$(OBJDIR)/\1.mod" -O "$(OBJDIR)/\1.o" $<
+# Install (copy executable to current directory)
+install: all
+	@echo "Installing main.exe to current directory..."
+	cp $(TARGET) ./main.exe
+	@echo "Executable available as ./main.exe"
 
-ifeq ($(filter $(MAKECMDGOALS),clean cleanall),)
--include $(DEP)
-endif
+# Debug: Show what commands will be run
+debug:
+	@echo "FFLAGS: $(FFLAGS)"
+	@echo "LDFLAGS: $(LDFLAGS)"
+	@echo "OBJ_DIR: $(OBJ_DIR)"
+	@echo "Compilation commands:"
+	@echo "  mod_global: $(FC) $(FFLAGS) -module $(OBJ_DIR) -c $(MOD_GLOBAL) -o $(OBJ_GLOBAL)"
+	@echo "  bogoliubov: $(FC) $(FFLAGS) -module $(OBJ_DIR) -c $(BOGOLIUBOV) -o $(OBJ_BOGOLIUBOV)"
+	@echo "  main: $(FC) $(FFLAGS) -module $(OBJ_DIR) -c $(MAIN_PROGRAM) -o $(OBJ_MAIN)"
+	@echo "  link: $(FC) $(LDFLAGS) $(OBJS) -o $(TARGET)"
 
-####################################################
-# Clean up                                         #
-####################################################
-cleandep:
-	@echo Removing dependency files...
-	@rm -f $(DEP)
+# Phony targets
+.PHONY: all clean rebuild run info compile install debug help
 
-cleandebug:
-	@echo Removing debug files...
-	@rm -f $(OBJDIR)/*genmod*
-	@rm -f *prep.opari*
-	@rm -f *.i90
-	@rm -f $(OBJDIR)/*.optrpt
-
-cleanobj:
-	@echo Removing object files...
-	@rm -f $(OBJDIR)/*.o
-
-cleanmod:
-	@echo Removing module files...
-	@rm -f $(OBJDIR)/*.mod
-
-cleanexe:
-	@echo Removing executable $(FILENAME)...
-	@rm -f $(FILENAME)
-
-clean: cleandebug cleanobj cleanmod
-
-cleanall: cleandep cleandebug cleanobj cleanmod cleanexe
-
-recompile: clean all
+# Help target
+help:
+	@echo "Intel Fortran Makefile for Spinwaves Program"
+	@echo "============================================="
+	@echo ""
+	@echo "Project Structure:"
+	@echo "  source/mod_global.f90          - Global definitions module"
+	@echo "  source/bogoliubov_transf.f90   - Bogoliubov transformation module"
+	@echo "  source/spinwavesNonCol.f90     - Main program"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  all      : Build the program (default)"
+	@echo "  clean    : Remove all build files"
+	@echo "  rebuild  : Clean and rebuild"
+	@echo "  run      : Build and run the program"
+	@echo "  compile  : Compile only (create object files)"
+	@echo "  install  : Build and copy main.exe to current directory"
+	@echo "  debug    : Show compilation commands for debugging"
+	@echo "  info     : Show build information"
+	@echo "  help     : Show this help message"
+	@echo ""
+	@echo "Compiler: Intel Fortran (ifx)"
+	@echo "Features: OpenMP, Intel MKL"
+	@echo "Optimization: -O3 -xHost"
+	@echo ""
+	@echo "Output: $(TARGET)"
