@@ -222,8 +222,8 @@ done
                 rm compilation_log.dat
                 cd - >/dev/null #not shows the path when going back to the working folder
 
-                cp $source_folder/bin/main.exe  $SWcode_executable
-                echo Executable moved from: $source_folder/bin/main.exe to: $SWcode_executable
+                cp $source_folder/build/main.exe  $SWcode_executable
+                echo Executable moved from: $source_folder/build/main.exe to: $SWcode_executable
                 compiled=true
             else
                 rm compilation_log.dat
@@ -252,8 +252,8 @@ done
             
             if [[ ! $line == make* ]]
             then
-                cp $source_folder/bin/main.exe  $SWcode_executable
-                echo Executable moved from: $source_folder/bin/main.exe to: $SWcode_executable
+                cp $source_folder/build/main.exe  $SWcode_executable
+                echo Executable moved from: $source_folder/build/main.exe to: $SWcode_executable
                 compiled=true
             fi
         fi
