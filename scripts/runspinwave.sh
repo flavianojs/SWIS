@@ -171,7 +171,7 @@ done
                 exit
             fi
 
-            python runspirit.py $spirit_config_file $spirit_initial_state $spirit_final_state
+            python $scripts"runspirit.py" $spirit_config_file $spirit_initial_state $spirit_final_state
 
             #if the program has run successfully, make the copying and backups 
             if [ "$?" -eq "0" ]; then
@@ -199,7 +199,7 @@ done
       
         if [ $cmake -eq 1 ]; then
             cd $source_folder
-	    mkdir -p build
+	        mkdir -p build
             cd build
             # rm -r *
             
@@ -252,7 +252,7 @@ if grep aborted compilation_log.dat
       if [[ ! $line == make* ]]
       then
          cp $source_folder'/build/main.exe'  $SWcode_executable
-         echo Executable moved to $SWcode_executable
+         echo Executable moved from: $source_folder/build/main.exe to: $SWcode_executable
          compiled=true
 fi
       fi
@@ -339,14 +339,16 @@ else
       # outputpng="$(basename "$basisname" .txt).html"
 
       # gr lattice_sky.py $basisname $latticefile $outputpng
-      python lattice_sky.py "outputfiles/latticExt_$XX.dat" "" $outputpng
+        python $scripts/lattice_sky.py "outputfiles/latticExt_$XX.dat" "" $outputpng
 
          if [ "$?" -eq "0" ]; then
-            if [ $host == 'theospc47' ] ; then
-                  xdg-open $outputpng
-                  :
+            if [ $host == 'theospc47' ] || [ $host == 'mpc2976' ] || [ $host == 'flaviano-MS-7D99' ]; then
+                xdg-open $outputpng
+                :
             else
-                  open $outputpng
+                open $outputpng
+                :
+
             fi
          fi
          # open lattice_sky.html
@@ -393,8 +395,8 @@ open occupation_$XX.png
 
    #--- kpath -----------------------------------------------------
    if [ $kpath -eq 1 ] && $runsuccess ; then
-      python kpath.py $XX
-      open kpath_$XX.png
+      python3 $scripts"kpath.py" $XX
+      open kpath_$XX.pdf
       echo
       echo "Kpath plotted."
    fi
