@@ -32,6 +32,8 @@ SWcode_executable="main_$host.exe"
 
 cmake=1
 
+DIR=`pwd`
+
 if ! [ -f "$SWcode_executable" ]; then
     echo "$SWcode_executable does not exist. Forcing compilation."
     rule="recompile ${rule}"
@@ -220,14 +222,14 @@ done
             if grep Linking compilation_log.dat
             then
                 rm compilation_log.dat
-                cd - >/dev/null #not shows the path when going back to the working folder
+                cd $DIR >/dev/null #not shows the path when going back to the working folder
 
                 cp $source_folder/build/main.exe  $SWcode_executable
                 echo Executable moved from: $source_folder/build/main.exe to: $SWcode_executable
                 compiled=true
             else
                 rm compilation_log.dat
-                cd - >/dev/null #not shows the path when going back to the working folder
+                cd $DIR >/dev/null #not shows the path when going back to the working folder
             fi
 
         else # if cmake=0
@@ -247,7 +249,7 @@ if grep aborted compilation_log.dat
 
       line=$(head -n 1 compilation_log.dat)
       rm compilation_log.dat
-      cd - >/dev/null #not shows the path when going back to the working folder
+      cd $DIR >/dev/null #not shows the path when going back to the working folder
 
       if [[ ! $line == make* ]]
       then
