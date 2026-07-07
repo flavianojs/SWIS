@@ -8,4 +8,4 @@
 compilation_log.dat
 *CMake*.log
 bin/*
-build/* 
+build*/* 
