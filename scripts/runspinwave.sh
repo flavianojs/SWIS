@@ -11,18 +11,18 @@
          spirit=0
      scale_pair=0
 
-source_folder='/home/dossan_f/Dropbox/scripts/dispersion-program'
+source_folder='SWIS'
 scripts='scripts/'
 
-spirit_config_file='input_MnSinoncol.cfg'
-spirit_initial_state='spirit_output/spinconfig_MnSinoncol_initial_random.ovf'
+spirit_config_file='input_XXXX.cfg'
+spirit_initial_state='spirit_output/spinconfig_initial.ovf'
 
-scale_input='inputfiles/pair.txt'
-scale_output='inputfiles/pair_temp.txt'
+scale_input='inputfiles/Jij_pair.spirit'
+scale_output='inputfiles/Jij_pair_temp.spirit'
 
 gnuscript=$scripts"plot_dispersion.gnu"
 
-export OMP_NUM_THREADS=8
+export OMP_NUM_THREADS=1
 # ulimit -s unlimited
 
 host=`hostname`
@@ -383,8 +383,9 @@ open occupation_$XX.png
          if [ $host == 'theospc47' ] ; then
                xdg-open disp_unfolpY_$XX.png
                :
-         else
-               open disp_unfolpY_$XX.png
+         else 
+		 	   :
+               # open disp_unfolpY_$XX.png
                # open disp_unfolp1_$XX.png
                # open disp_unfolp{X,Y,Z}_$XX.png
                # open disp_unfol*_$XX.png
@@ -398,7 +399,7 @@ open occupation_$XX.png
    #--- kpath -----------------------------------------------------
    if [ $kpath -eq 1 ] && $runsuccess ; then
       python3 $scripts"kpath.py" $XX
-      open kpath_$XX.pdf
+      # open kpath_$XX.pdf
       echo
       echo "Kpath plotted."
    fi
