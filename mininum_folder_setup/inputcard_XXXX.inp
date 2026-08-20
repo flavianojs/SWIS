@@ -55,7 +55,7 @@ syptsMataux =
 ,
 
 basisname   = "spirit_output/spinconfig_final.ovf",
-pairfile    = "inputfiles/Jij_KKR.spirit",
+pairfile    = "inputfiles/Jij_pair.spirit",
 latticefile = "inputfiles/lattice.dat"
 /
 
