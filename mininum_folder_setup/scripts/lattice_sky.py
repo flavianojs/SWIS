@@ -97,13 +97,13 @@ for i, direction in enumerate(directions):
 
     colors[i] = colorsys.hsv_to_rgb(hue, saturation, value)
 
-rescale = 0.5
+rescale = 25
 
 aa = 0.6
 bb = 0.7
 for i, position in enumerate(positions):
     # if i < 64 : 
-    if -aa < position[0] < aa and -bb < position[1] < bb: # for the structure vs B field
+    # if -aa < position[0] < aa and -bb < position[1] < bb: # for the structure vs B field
         # print (position[0])
         size_arrow = np.square( np.dot(directions[i], directions[i]) )
         gr3.drawspins(4*positions[i], directions[i], colors[i],
@@ -145,7 +145,7 @@ gr3.setbackgroundcolor(1. , 1. , 1. , 0.5)
 
 # gr3.cameralookat(0,-26, 26, 0, 0, 0, 0, 1, 0) #Angle 2: 
 gr3.cameralookat(0, 0, 30, 0, 0, 0, 0, 1, 0) #Angle 1: Top view
-gr3.cameralookat(0, 0, 30, 0, 0, 0, 0, 1, 0) #Angle 1: Top view
+gr3.cameralookat(0, 0, 50, 0, 0, 0, 0, 1, 0) #Angle 1: Top view
 
 gr3.setlightdirection(1,0,2)
 gr3.setlightdirection(0,0,1)
