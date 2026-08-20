@@ -42,7 +42,7 @@ plot_supercell_BZ = .true.,
 
 ! neutron_factor = .false.,
 ! circular_cartesian_convertion_factor = .true.,
-spirit_input = "input_NiO.cfg"
+spirit_input = "input_XXXX.cfg"
 /
 
 &input2
