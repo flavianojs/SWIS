@@ -7,11 +7,11 @@
         lattice=0
      occupation=0
           kpath=0
- dispersionplot=1
+ dispersionplot=0 
          spirit=0
      scale_pair=0
 
-source_folder='/home/dossan_f/Dropbox/scripts/dispersion-program'
+source_folder='SWIS'
 scripts='scripts/'
 
 spirit_config_file='input_XXXX.cfg'
@@ -69,7 +69,7 @@ else
     if [ $occupation -eq 1 ]; then
         export OMP_NUM_THREADS=1
     else
-        export OMP_NUM_THREADS=14
+        export OMP_NUM_THREADS=$OMP_NUM_THREADS
     fi
 fi
 
@@ -118,18 +118,18 @@ done
 
 #--- Ground state calculation ------------------------------------------
 
-    if [ $groundstate -eq 1 ]; then
-        cp inputfiles/lattice_$XX\.datbkp inputfiles/lattice_$XX\.dat 
-        cp inputfiles/lattice_$XX\.dat ground\ state\ program/lattice_sky.dat 
-        cp inputcard_$XX\.inp ground\ state\ program/inputcard_sky.inp 
-        cd ground\ state\ program/
+   if [ $groundstate -eq 1 ]; then
+      cp inputfiles/lattice_$XX\.datbkp inputfiles/lattice_$XX\.dat 
+      cp inputfiles/lattice_$XX\.dat ground\ state\ program/lattice_sky.dat 
+      cp inputcard_$XX\.inp ground\ state\ program/inputcard_sky.inp 
+      cd ground\ state\ program/
 
-        echo "Ground state program starting:"
-        ./topo_sw.x
+      echo "Ground state program starting:"
+      ./topo_sw.x
 
-        cp plot.dat ../inputfiles/lattice_$XX\.dat 
-        cd .. 
-    fi
+      cp plot.dat ../inputfiles/lattice_$XX\.dat 
+      cd .. 
+   fi
 
     if [ $scale_pair -eq 1 ]; then
         echo -e '******* Scale pair ***********'
@@ -173,7 +173,7 @@ done
                 exit
             fi
 
-            python runspirit.py $spirit_config_file $spirit_initial_state $spirit_final_state
+            python $scripts"runspirit.py" $spirit_config_file $spirit_initial_state $spirit_final_state
 
             #if the program has run successfully, make the copying and backups 
             if [ "$?" -eq "0" ]; then
@@ -193,7 +193,7 @@ done
     fi
 
 #--- Dispersion calculation --------------------------------------------
-    #--- Compiling ------------------------------------------------------
+   #--- Compiling ------------------------------------------------------
 
    compiled=false
    if [ $compile -eq 1 ]; then 
@@ -201,7 +201,7 @@ done
       
         if [ $cmake -eq 1 ]; then
             cd $source_folder
-	          mkdir -p build
+	        mkdir -p build
             cd build
             # rm -r *
             
@@ -233,9 +233,9 @@ done
             fi
 
         else # if cmake=0
-          cd $source_folder
+            cd $source_folder
             
-          make $rule $platform $debug $filename $verbose | tee compilation_log.dat
+      make $rule $platform $debug $filename $verbose | tee compilation_log.dat
 
         if grep failed compilation_log.dat
         then
@@ -264,140 +264,142 @@ fi
       exit
    fi
 
-    #--- Executing ------------------------------------------------------
+   #--- Executing ------------------------------------------------------
 
-    echo -e '\n******* Spin-wave code ***********'
-    basisname=$(grep "basisname" inputcard_$XX.inp | awk '{print $3}' | cut -d '"' -f 2 | cut -d ',' -f 2 | cut -d '=' -f 2)
-    pairfile=$(grep "pairfile" inputcard_$XX.inp | awk '{print $3}' | cut -d '"' -f 2 | cut -d ',' -f 2 | cut -d '=' -f 2)
-    spirit_input=$(grep "spirit_input" inputcard_$XX.inp | awk '{print $3}' | cut -d '"' -f 2 | cut -d ',' -f 2 | cut -d '=' -f 2)
-    latticefile=$(grep "latticefile" inputcard_$XX.inp | awk '{print $3}' | cut -d '"' -f 2 | cut -d ',' -f 2 | cut -d '=' -f 2)
+   echo -e '\n******* Spin-wave code ***********'
+   basisname=$(grep "basisname" inputcard_$XX.inp | awk '{print $3}' | cut -d '"' -f 2 | cut -d ',' -f 2 | cut -d '=' -f 2)
+   pairfile=$(grep "pairfile" inputcard_$XX.inp | awk '{print $3}' | cut -d '"' -f 2 | cut -d ',' -f 2 | cut -d '=' -f 2)
+   spirit_input=$(grep "spirit_input" inputcard_$XX.inp | awk '{print $3}' | cut -d '"' -f 2 | cut -d ',' -f 2 | cut -d '=' -f 2)
+   latticefile=$(grep "latticefile" inputcard_$XX.inp | awk '{print $3}' | cut -d '"' -f 2 | cut -d ',' -f 2 | cut -d '=' -f 2)
 
-    runsuccess=true
-    if [ $executing -eq 1 ]; then
-        should_execute=false
-        if [ $forceexecuting -eq 1 ] ||  $compiled ; then
+   runsuccess=true
+   if [ $executing -eq 1 ]; then
+      should_execute=false
+      if [ $forceexecuting -eq 1 ] ||  $compiled ; then
+         should_execute=true
+      fi
+
+      declare -a files_to_check=(
+                      $SWcode_executable 
+                      "inputcard_$XX.inp"
+                      $basisname
+                      $pairfile
+                      $spirit_input
+                      $latticefile
+                      )
+      # now loop through the above array
+      for file in "${files_to_check[@]}"
+      do
+         if ! cmp --silent $file temp/$file
+         then
+            echo "Modified file:" $file
             should_execute=true
-        fi
+         fi
+      done
 
-        declare -a files_to_check=(
-                        $SWcode_executable 
-                        "inputcard_$XX.inp"
-                        $basisname
-                        $pairfile
-                        $spirit_input
-                        $latticefile
-                        )
-        # now loop through the above array
-        for file in "${files_to_check[@]}"
-        do
-           if ! cmp --silent $file temp/$file
-           then
-               echo "Modified file:" $file
-               should_execute=true
-           fi
-        done
+      # Executing the program
+      if $should_execute
+      then
+         echo -e "\nSpinwave dispersion program starting:"
+         ./$SWcode_executable  inputcard_$XX\.inp
 
-        # Executing the program
-        if $should_execute
-        then
-            echo -e "\nSpinwave dispersion program starting:"
-            ./$SWcode_executable  inputcard_$XX\.inp
-
-            #if the program has run successfully, make the copying and backups 
-            if [ "$?" -eq "0" ]; then
-                if [ $occupation -ne 1 ]; then
-                    mv precession_$XX.dat disp_analy_$XX.dat disp_unfol_$XX.dat dispersion_$XX.dat dispersion_imag_$XX.dat latticExt_$XX.dat kpath_$XX.dat ine_intensities_$XX.dat outputfiles/
-                else
+         #if the program has run successfully, make the copying and backups 
+         if [ "$?" -eq "0" ]; then
+if [ $occupation -ne 1 ]; then
+                mv precession_$XX.dat disp_analy_$XX.dat disp_unfol_$XX.dat dispersion_$XX.dat dispersion_imag_$XX.dat latticExt_$XX.dat kpath_$XX.dat ine_intensities_$XX.dat outputfiles/
+else
                     mv occupation_$XX.dat eigenvector_$XX.dat outputfiles/
                 fi                
 
-                #Copying files to be check for modifications on the next run
-                echo
-                echo "Files tracked for changes:"
-                for file in "${files_to_check[@]}"
-                do
-                    echo $file
-                    #Copy the file and the folder structuring
-                    rsync -R $file temp/
-                done
-            else
-                runsuccess=false
-            fi
-        else
-            echo "Calculated data are up to date!"
-        fi
+            #Copying files to be check for modifications on the next run
+            echo
+            echo "Files tracked for changes:"
+            for file in "${files_to_check[@]}"
+            do
+               echo $file
+               #Copy the file and the folder structuring
+               rsync -R $file temp/
+            done
+         else
+            runsuccess=false
+         fi
+      else
+         echo "Calculated data are up to date!"
+      fi
 
-    fi # executing == 1
+   fi # executing == 1
 
 #--- Plottings ---------------------------------------------------------
-    #--- Lattice Plotting -----------------------------------------------
+   #--- Lattice Plotting -----------------------------------------------
 
-    if [ $lattice -eq 1 ]; then
-        # gr lattice_sky.py inputfiles/spinconfig_$XX.txt inputfiles/lattice_$XX.dat spinconfig_$XX.png
-        
-        latticefile=$(grep "latticefile" inputcard_$XX.inp | awk '{print $3}' | cut -d '"' -f 2)
-        outputpng="$(basename "$basisname" .ovf).png"
-        # outputpng="$(basename "$basisname" .txt).png"
-        # outputpng="$(basename "$basisname" .txt).html"
+   if [ $lattice -eq 1 ]; then
+      # gr lattice_sky.py inputfiles/spinconfig_$XX.txt inputfiles/lattice_$XX.dat spinconfig_$XX.png
+      
+      latticefile=$(grep "latticefile" inputcard_$XX.inp | awk '{print $3}' | cut -d '"' -f 2)
+      outputpng="$(basename "$basisname" .ovf).png"
+      # outputpng="$(basename "$basisname" .txt).png"
+      # outputpng="$(basename "$basisname" .txt).html"
 
-        # gr lattice_sky.py $basisname $latticefile $outputpng
-        python lattice_sky.py "outputfiles/latticExt_$XX.dat" "" $outputpng
-        
-        if [ "$?" -eq "0" ]; then
-            if [ $host == 'theospc47' ] ; then
+      # gr lattice_sky.py $basisname $latticefile $outputpng
+        python $scripts/lattice_sky.py "outputfiles/latticExt_$XX.dat" "" $outputpng
+
+         if [ "$?" -eq "0" ]; then
+            if [ $host == 'theospc47' ] || [ $host == 'mpc2976' ] || [ $host == 'flaviano-MS-7D99' ]; then
                 xdg-open $outputpng
                 :
             else
                 open $outputpng
+                :
+
             fi
-        fi
-        # open lattice_sky.html
-    fi
+         fi
+         # open lattice_sky.html
+   fi
 
-    #--- Occupation number ----------------------------------------------
+   #--- Occupation number ----------------------------------------------
 
-    if [ $occupation -eq 1 ] && $runsuccess ; then
+   if [ $occupation -eq 1 ] && $runsuccess ; then
         echo
         echo "Plotting occupations ..."
-        gnuplot -e "specifier='$XX'" occupation.gnu
-        # open occupation.html
-        open occupation_$XX.png
+      gnuplot -e "specifier='$XX'" occupation.gnu
+      # open occupation.html
+open occupation_$XX.png
         echo "Occupations plotted."
-    fi	
+   fi 
 
-    #--- Dispersion -----------------------------------------------------
-    if [ $dispersionplot -eq 1 ] && $runsuccess ; then
-        echo
-        echo "Plotting dispersion ..."
+   #--- Dispersion -----------------------------------------------------
+   if [ $dispersionplot -eq 1 ] && $runsuccess ; then
+      echo
+      echo "Plotting dispersion ..."
 
-        maxomega=$(grep "maxomega" inputcard_$XX.inp | awk '{print $3}' | cut -d ',' -f 1)
-        minomega=$(grep "minomega" inputcard_$XX.inp | awk '{print $6}' | cut -d ',' -f 1)
+      maxomega=$(grep "maxomega" inputcard_$XX.inp | awk '{print $3}' | cut -d ',' -f 1)
+      minomega=$(grep "minomega" inputcard_$XX.inp | awk '{print $6}' | cut -d ',' -f 1)
 
-        gnuplot -e "specifier='$XX'; ymax='$maxomega'; ymin='$minomega'" $gnuscript
+      gnuplot -e "specifier='$XX'; ymax='$maxomega'; ymin='$minomega'" $gnuscript
 
-        #If the last command was sucessiful
-        if [ "$?" -eq "0" ]; then
+      #If the last command was sucessiful
+      if [ "$?" -eq "0" ]; then
 
-            if [ $host == 'theospc47' ] ; then
-                # xdg-open disp_unfolpY_$XX.png
-                :
-            else
-                :
-                # open disp_unfolpY_$XX.png
-                # open disp_unfolp1_$XX.png
-                # open disp_unfolp{X,Y,Z}_$XX.png
-                # open disp_unfol*_$XX.png
-            fi
+         if [ $host == 'theospc47' ] ; then
+               xdg-open disp_unfolpY_$XX.png
+               :
+         else 
+		 	   :
+               # open disp_unfolpY_$XX.png
+               # open disp_unfolp1_$XX.png
+               # open disp_unfolp{X,Y,Z}_$XX.png
+               # open disp_unfol*_$XX.png
+         fi
 
-        fi
-            
-        echo "Dispersion plotted."
-    fi   
+      fi
+         
+      echo "Dispersion plotted."
+   fi   
 
-    #--- kpath -----------------------------------------------------
-    if [ $kpath -eq 1 ] && $runsuccess ; then
-        python3 kpath.py $XX
-        open kpath_$XX.pdf
-        echo
-        echo "Kpath plotted."
-    fi
+   #--- kpath -----------------------------------------------------
+   if [ $kpath -eq 1 ] && $runsuccess ; then
+      python3 $scripts"kpath.py" $XX
+      # open kpath_$XX.pdf
+      echo
+      echo "Kpath plotted."
+   fi
