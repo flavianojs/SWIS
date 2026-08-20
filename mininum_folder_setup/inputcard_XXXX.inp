@@ -7,7 +7,7 @@ spirit = .true.,
 !Unfolding:
 unfolding = .true.,
 nptomega = 100,
-maxomega =  400.0, minomega = 0, eta=8.0d-0,
+maxomega =  50.0, minomega = 0, eta=1.0d-0,
 
 a1 =  1.0 0.0 0.0,   !In unit of the lattice constant, 
 a2 =  0.0 1.0 0.0,   ! i.e., a1 will become later a1=a1*latcons
@@ -24,7 +24,7 @@ muB = 5.7883818012d-2, !Bohr magneton in meV. Set to 1.d0 if want to input 'hmm0
 hmagunitvec = 0.d0  0.d0 1.d0,
 !in Tesla. For meV, make 'muB = 1.d0'
 hm0 = 0.0d0,
-mu_s = 1.07, ! mag. mom.
+mu_s = 1.0, ! mag. mom.
 gamma = 2.d0, ! S = m   u_s / gamma
 J_D_scaling = 2.0d0, ! For the difference between in the inner hamiltonian and the JMcode/Spirit one.
 kaniunitvec = 0.d0  1.d0 0.d0, kanis =  0.0d-0, ! k = knais . g^2 / mu_s^2
@@ -50,8 +50,10 @@ spirit_input = "input_XXXX.cfg"
 syptsMataux =   
   0.0000000000 	0.0000000000 	0.0000000000 
   0.0000000000 	0.5000000000 	0.0000000000 
-  0.5000000000 	0.5000000000 	0.5000000000 
+  0.5000000000 	0.5000000000 	0.0000000000 
   0.5000000000 	0.5000000000 	0.5000000000  
+  0.0000000000 	0.0000000000 	0.0000000000 
+
 ,
 
 basisname   = "spirit_output/spinconfig_final.ovf",
