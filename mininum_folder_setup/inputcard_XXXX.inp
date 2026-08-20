@@ -48,12 +48,9 @@ spirit_input = "input_XXXX.cfg"
 &input2
 !The high symmetry points P=(p1,p2,p3,p4) are given via the matrix M(4x4), where P=Mb, and b=(b1,b2,b3,0), the reciprocal lattice vectors 
 syptsMataux =   
+ -0.5000000000 	0.0000000000 	0.0000000000 
   0.0000000000 	0.0000000000 	0.0000000000 
-  0.0000000000 	0.5000000000 	0.0000000000 
-  0.5000000000 	0.5000000000 	0.0000000000 
-  0.5000000000 	0.5000000000 	0.5000000000  
-  0.0000000000 	0.0000000000 	0.0000000000 
-
+  0.5000000000 	0.0000000000 	0.0000000000 
 ,
 
 basisname   = "spirit_output/spinconfig_final.ovf",
