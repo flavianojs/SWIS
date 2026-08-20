@@ -32,6 +32,8 @@ SWcode_executable="main_$host.exe"
 
 cmake=1
 
+DIR=`pwd`
+
 if ! [ -f "$SWcode_executable" ]; then
     echo "$SWcode_executable does not exist. Forcing compilation."
     rule="recompile ${rule}"
