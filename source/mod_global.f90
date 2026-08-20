@@ -2167,6 +2167,8 @@ contains
       j=index(inputcardname,".")-1
       suffix = inputcardname(i:j)
 
+      call execute_command_line('mkdir -p outputfiles')
+
       !Storage file openning
       formt="dispersion_"//trim(suffix)//".dat"
       open( unit=90, file=formt )
