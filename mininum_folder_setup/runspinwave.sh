@@ -193,12 +193,14 @@ done
 #--- Dispersion calculation --------------------------------------------
     #--- Compiling ------------------------------------------------------
 
-    compiled=false
-    if [ $compile -eq 1 ]; then 
-        echo -e '\n******* Spin-wave code compilation ***********'
-        
+   compiled=false
+   if [ $compile -eq 1 ]; then 
+      echo -e '\n******* Spin-wave code compilation ***********'
+      
         if [ $cmake -eq 1 ]; then
-            cd $source_folder/build
+            cd $source_folder
+	          mkdir -p build
+            cd build
             # rm -r *
             
             cmake ../
@@ -217,45 +219,48 @@ done
 
             if grep Linking compilation_log.dat
             then
-                cp $source_folder'/bin/main.exe'  $SWcode_executable
-                echo Executable moved to $SWcode_executable
-                compiled=true
-            fi
-            rm compilation_log.dat
+                rm compilation_log.dat
+                cd $DIR >/dev/null #not shows the path when going back to the working folder
 
-            cd - >/dev/null #not shows the path when going back to the working folder
+                cp $source_folder/build/main.exe  $SWcode_executable
+                echo Executable moved from: $source_folder/build/main.exe to: $SWcode_executable
+                compiled=true
+            else
+                rm compilation_log.dat
+                cd $DIR >/dev/null #not shows the path when going back to the working folder
+            fi
 
         else # if cmake=0
-            cd $source_folder
+          cd $source_folder
             
-            make $rule $platform $debug $filename $verbose | tee compilation_log.dat
+          make $rule $platform $debug $filename $verbose | tee compilation_log.dat
 
-            if grep failed compilation_log.dat
-            then
-                exit
-            fi
-
-            if grep aborted compilation_log.dat
-            then
-                exit
-            fi
-
-            line=$(head -n 1 compilation_log.dat)
-            rm compilation_log.dat
-            cd - >/dev/null #not shows the path when going back to the working folder
-            
-            if [[ ! $line == make* ]]
-            then
-                cp $source_folder'/bin/main.exe'  $SWcode_executable
-                echo Executable moved to $SWcode_executable
-                compiled=true
-            fi
+        if grep failed compilation_log.dat
+        then
+            exit
         fi
-    fi
 
-    if [[ $rule =~ "clean" ]]; then 
-        exit
-    fi
+if grep aborted compilation_log.dat
+            then
+                exit
+            fi
+
+      line=$(head -n 1 compilation_log.dat)
+      rm compilation_log.dat
+      cd $DIR >/dev/null #not shows the path when going back to the working folder
+
+      if [[ ! $line == make* ]]
+      then
+         cp $source_folder'/build/main.exe'  $SWcode_executable
+         echo Executable moved from: $source_folder/build/main.exe to: $SWcode_executable
+         compiled=true
+fi
+      fi
+   fi
+
+   if [[ $rule =~ "clean" ]]; then 
+      exit
+   fi
 
     #--- Executing ------------------------------------------------------
 
