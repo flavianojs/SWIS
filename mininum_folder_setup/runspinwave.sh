@@ -345,11 +345,11 @@ else
 
          if [ "$?" -eq "0" ]; then
             if [ $host == 'theospc47' ] || [ $host == 'mpc2976' ] || [ $host == 'flaviano-MS-7D99' ]; then
+                :
                 xdg-open $outputpng
-                :
             else
-                open $outputpng
                 :
+                open $outputpng
 
             fi
          fi
