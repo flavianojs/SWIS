@@ -2190,7 +2190,7 @@ contains
       formt="kpath_"//trim(suffix)//".dat"
       open( unit=333, file=formt )
 
-      formt="outputfiles/angular_momentum_"//trim(suffix)//".dat"
+      formt="angular_momentum_"//trim(suffix)//".dat"
       open( unit=987, file=formt )
 
       do i=-2,2; do j=-2,2
