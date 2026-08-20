@@ -9,9 +9,9 @@ unfolding = .true.,
 nptomega = 100,
 maxomega =  400.0, minomega = 0, eta=8.0d-0,
 
-a1 =  0.50 0.50 1.00,   !In unit of the lattice constant, 
-a2 =  0.50 1.00 0.50,   ! i.e., a1 will become later a1=a1*latcons
-a3 =  1.00 0.50 0.50, 
+a1 =  1.0 0.0 0.0,   !In unit of the lattice constant, 
+a2 =  0.0 1.0 0.0,   ! i.e., a1 will become later a1=a1*latcons
+a3 =  0.0 0.0 1.0, 
 
 !               phi       theta 
 polarization1 = 0.0d0 1.57079632679490d0,               !x
