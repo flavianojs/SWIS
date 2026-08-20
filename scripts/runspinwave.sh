@@ -306,7 +306,7 @@ fi
          #if the program has run successfully, make the copying and backups 
          if [ "$?" -eq "0" ]; then
 if [ $occupation -ne 1 ]; then
-                mv precession_$XX.dat disp_analy_$XX.dat disp_unfol_$XX.dat dispersion_$XX.dat dispersion_imag_$XX.dat latticExt_$XX.dat kpath_$XX.dat ine_intensities_$XX.dat angular_momentum_$XX.dat outputfiles/
+                mv precession_$XX.dat disp_analy_$XX.dat disp_unfol_$XX.dat dispersion_$XX.dat dispersion_imag_$XX.dat latticExt_$XX.dat kpath_$XX.dat ine_intensities_$XX.dat outputfiles/
 else
                     mv occupation_$XX.dat eigenvector_$XX.dat outputfiles/
                 fi                
